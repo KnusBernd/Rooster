@@ -1,0 +1,24 @@
+{
+  "mods": [
+    {
+      "guid": "BuildingPlus",
+      "thunderstore_namespace": "Daniel",
+      "thunderstore_name": "BuildingPlus"
+    },
+    {
+      "guid": "UndergroundOnly",
+      "thunderstore_namespace": "KnusBernd",
+      "thunderstore_name": "UndergroundOnly"
+    },
+    {
+      "guid": "com.sinai.unityexplorer",
+      "thunderstore_namespace": "sinai-dev",
+      "thunderstore_name": "UnityExplorer"
+    },
+    {
+      "guid": "com.daniel.treehousecreative",
+      "thunderstore_namespace": "Daniel",
+      "thunderstore_name": "TreehouseCreative"
+    }
+  ]
+}
