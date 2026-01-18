@@ -46,7 +46,7 @@ namespace Rooster
             if (onLabel != null) onLabel.text = "Update All"; 
             
             var offLabel = modal.offButton.GetComponentInChildren<TabletTextLabel>();
-            if (offLabel != null) offLabel.text = "Ignore";
+            if (offLabel != null) offLabel.text = "Dismiss";
             
             try
             {
