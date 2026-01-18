@@ -11,6 +11,9 @@ namespace Rooster.Models
     {
         public string name;
         public string full_name;
+        public string website_url;
         public ThunderstoreVersion latest;
+        public ThunderstoreVersion oldest;
+        public System.Collections.Generic.List<string> categories;
     }
 }

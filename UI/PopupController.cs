@@ -26,7 +26,9 @@ namespace Rooster.UI
                 return;
             }
 
-            if (!_updateShownThisSession && UpdateChecker.PendingUpdates.Count > 0)
+            // Only show update popup after check is complete and no other popup is active
+            if (!_updateShownThisSession && UpdateChecker.CheckComplete && UpdateChecker.PendingUpdates.Count > 0 &&
+                Patches.MainMenuPopupPatch.CurrentMenuState == Patches.MainMenuPopupPatch.MenuState.None)
             {
                 UpdateMenuUI.ShowUpdateMenu();
                 _updateShownThisSession = true;

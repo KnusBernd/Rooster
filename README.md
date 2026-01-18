@@ -52,7 +52,7 @@ Rooster takes security seriously to ensure your game and computer remain safe wh
     - Linux/macOS support is **experimental/untested** (though the file operations should theoretically work).
 
 ## Known Issues
-- **Game Freeze on Download**: The game may freeze briefly while downloading larger mods because the download happens on the main thread. UCH mods tend to be small (<1MB) so this should not be an issue for most users.
+- None currently known.
 
 ## For Developers
 
@@ -62,11 +62,10 @@ If you're a mod developer, see [DEVELOPERS.md](https://github.com/KnusBernd/Roos
 - Troubleshooting detection issues
 
 ## Roadmap & Todo & Nice to have
-- [ ] **Async Downloads**: Move downloading to a background thread to prevent game freezing
+- [x] **Async Downloads**: Move downloading to a background thread to prevent game freezing
 - [ ] **Config Editor**: Reuse the UCH Tablet UI to create a full BepInEx configuration editor (replacing the need for configuration manager)
-- [ ] **RSA Code Signing**: Implement RSA key verification to allow developers to sign their mods, ensuring only trusted versions are installed
 - [ ] **GitHub Integration**: Fetch and display metadata from GitHub, including detailed release notes, changelogs, and issue trackers for open-source mods
-- [ ] **Scalability Optimization**: Improve API fetching to handle large mod lists efficiently (e.g. pagination or caching) instead of fetching all at once
+- [ ] **Scalability Optimization**: Improve API fetching to handle large mod lists efficiently (e.g. pagination or caching) instead of fetching all at once, currently with less than 50 mods it's not necessary.
 
 ## Support
 

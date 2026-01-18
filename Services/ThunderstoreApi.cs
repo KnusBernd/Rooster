@@ -107,7 +107,7 @@ namespace Rooster.Services
                 if (firstVerObjStart < 0) break;
                 
                 // Find closing brace of first version object
-                int firstVerObjEnd = FindMatchingBrace(json, firstVerObjStart);
+                int firstVerObjEnd = FindMatchingClosingChar(json, firstVerObjStart, '{', '}');
                 if (firstVerObjEnd < 0) break;
                 
                 string firstVerObj = json.Substring(firstVerObjStart, firstVerObjEnd - firstVerObjStart + 1);
@@ -115,23 +115,62 @@ namespace Rooster.Services
                 // Extract version details
                 string verNum = ExtractJsonValue(firstVerObj, "version_number");
                 string dlUrl = ExtractJsonValue(firstVerObj, "download_url");
-                // NOTE: Thunderstore API v1 does not provide file hashes. Hash verification is not currently possible.
+                string websiteUrl = ExtractJsonValue(firstVerObj, "website_url");
                 
                 // Extract package metadata
                 string packageMeta = json.Substring(pkgStart, versionsKeyIdx - pkgStart);
                 string fullName = ExtractJsonValue(packageMeta, "full_name");
+                // website_url is in the version object, not package meta
 
                 if (!string.IsNullOrEmpty(pkgName) && !string.IsNullOrEmpty(verNum))
                 {
+                    // Parse oldest version by iterating through all versions in the array
+                    string oldestVerNum = null;
+                    string oldestDlUrl = null;
+
+                    int versionsStartIdx = json.IndexOf('[', versionsKeyIdx);
+                    if (versionsStartIdx >= 0)
+                    {
+                        int versionsEndIdx = FindMatchingClosingChar(json, versionsStartIdx, '[', ']');
+                        if (versionsEndIdx > versionsStartIdx)
+                        {
+                            // Iterate children of the versions array
+                            int walker = versionsStartIdx + 1;
+                            while (walker < versionsEndIdx)
+                            {
+                                int nextObjStart = json.IndexOf('{', walker);
+                                if (nextObjStart < 0 || nextObjStart >= versionsEndIdx) break;
+
+                                int nextObjEnd = FindMatchingClosingChar(json, nextObjStart, '{', '}');
+                                if (nextObjEnd < 0) break; // Should not happen if JSON is valid
+
+                                // This is a candidate for oldest (since we are moving Newest -> Oldest)
+                                // We just keep updating it, so the last one we see is the Oldest.
+                                string vObj = json.Substring(nextObjStart, nextObjEnd - nextObjStart + 1);
+                                oldestVerNum = ExtractJsonValue(vObj, "version_number");
+                                oldestDlUrl = ExtractJsonValue(vObj, "download_url");
+
+                                walker = nextObjEnd + 1;
+                            }
+                        }
+                    }
+
                     packages.Add(new ThunderstorePackage
                     {
                         name = pkgName,
                         full_name = fullName ?? "",
+                        website_url = websiteUrl ?? "",
                         latest = new ThunderstoreVersion
                         {
                             version_number = verNum,
                             download_url = dlUrl ?? "",
-                        }
+                        },
+                        oldest = new ThunderstoreVersion
+                        {
+                            version_number = oldestVerNum ?? verNum,
+                            download_url = oldestDlUrl ?? dlUrl ?? "",
+                        },
+                        categories = ExtractJsonStringArray(packageMeta, "categories")
                     });
                 }
                 
@@ -142,12 +181,12 @@ namespace Rooster.Services
             return packages;
         }
         
-        private static int FindMatchingBrace(string json, int openBraceIndex)
+        private static int FindMatchingClosingChar(string json, int openIndex, char openChar, char closeChar)
         {
             int depth = 0;
             bool inString = false;
             // Iterate through string considering escape characters
-            for (int i = openBraceIndex; i < json.Length; i++)
+            for (int i = openIndex; i < json.Length; i++)
             {
                 char c = json[i];
                 if (c == '"' && (i == 0 || json[i-1] != '\\'))
@@ -156,8 +195,8 @@ namespace Rooster.Services
                 }
                 else if (!inString)
                 {
-                    if (c == '{') depth++;
-                    else if (c == '}')
+                    if (c == openChar) depth++;
+                    else if (c == closeChar)
                     {
                         depth--;
                         if (depth == 0) return i;
@@ -177,6 +216,58 @@ namespace Rooster.Services
                 return match.Groups[1].Value;
             }
             return null;
+        }
+        public static List<string> ExtractJsonStringArray(string source, string key)
+        {
+            var list = new List<string>();
+            string pattern = $"\"{key}\"\\s*:\\s*\\[(.*?)\\]";
+            var match = System.Text.RegularExpressions.Regex.Match(source, pattern);
+            if (match.Success)
+            {
+                string content = match.Groups[1].Value;
+                // Capture content inside quotes
+                var matches = System.Text.RegularExpressions.Regex.Matches(content, "\"([^\"]*)\"");
+                foreach (System.Text.RegularExpressions.Match m in matches)
+                {
+                    list.Add(m.Groups[1].Value);
+                }
+            }
+            return list;
+        }
+
+        /// <summary>Fetches fresh version data for a package from the experimental API (bypasses CDN cache).</summary>
+        public static IEnumerator FetchFreshVersion(string owner, string packageName, Action<string, string> onComplete)
+        {
+            string expUrl = $"https://thunderstore.io/api/experimental/package/{owner}/{packageName}/";
+            RoosterPlugin.LogInfo($"Fetching fresh version from experimental API: {expUrl}");
+            
+            using (UnityWebRequest www = UnityWebRequest.Get(expUrl))
+            {
+                yield return www.SendWebRequest();
+
+                if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
+                {
+                    RoosterPlugin.LogError($"Failed to fetch fresh version for {owner}/{packageName}: {www.error}");
+                    onComplete?.Invoke(null, null);
+                }
+                else
+                {
+                    try
+                    {
+                        string json = www.downloadHandler.text;
+                        // Parse latest.version_number from experimental API response
+                        string version = ExtractJsonValue(json, "version_number");
+                        string downloadUrl = ExtractJsonValue(json, "download_url");
+                        RoosterPlugin.LogInfo($"Fresh version for {owner}/{packageName}: {version}");
+                        onComplete?.Invoke(version, downloadUrl);
+                    }
+                    catch (Exception ex)
+                    {
+                        RoosterPlugin.LogError($"Error parsing fresh version: {ex}");
+                        onComplete?.Invoke(null, null);
+                    }
+                }
+            }
         }
     }
 }

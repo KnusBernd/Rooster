@@ -81,6 +81,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Plugin.cs" />
+    <Compile Include="ChaosInstaller.cs" />
     <Compile Include="RoosterConfig.cs" />
     <Compile Include="UpdateChecker.cs" />
     <Compile Include="UpdateDownloader.cs" />
@@ -97,6 +98,7 @@
     <Compile Include="Services\ThunderstoreApi.cs" />
     <Compile Include="Services\ModMatcher.cs" />
     <Compile Include="Services\VersionComparer.cs" />
+    <Compile Include="Services\UpdateLoopPreventer.cs" />
     <Compile Include="UI\UIHelpers.cs" />
     <Compile Include="UI\PopupController.cs" />
   </ItemGroup>

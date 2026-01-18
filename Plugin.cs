@@ -29,17 +29,19 @@ namespace Rooster
 
         private void Start()
         {
+            // Initialize loop preventer here ensuring all plugins are loaded
+            Rooster.Services.UpdateLoopPreventer.Init();
             StartCoroutine(UpdateChecker.CheckForUpdates());
         }
-
-
 
         private void CleanupOldFiles()
         {
             try 
             {
                 string pluginsPath = Paths.PluginPath;
-                var oldFiles = System.IO.Directory.GetFiles(pluginsPath, "*.old", System.IO.SearchOption.AllDirectories);
+                if (!System.IO.Directory.Exists(pluginsPath)) return;
+
+                var oldFiles = System.IO.Directory.GetFiles(pluginsPath, "*.old*", System.IO.SearchOption.AllDirectories);
                 foreach (var f in oldFiles)
                 {
                     try { System.IO.File.Delete(f); LogInfo($"Deleted old file: {f}"); } catch { }
@@ -49,9 +51,7 @@ namespace Rooster
         }
 
         public static void LogInfo(string message) => LoggerInstance.LogInfo(message);
-
         public static void LogWarning(string message) => LoggerInstance.LogWarning(message);
-
         public static void LogError(string message) => LoggerInstance.LogError(message);
     }
 }

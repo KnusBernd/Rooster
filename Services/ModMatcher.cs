@@ -59,7 +59,21 @@ namespace Rooster.Services
             string nTsNamespace = NormalizeName(tsNamespace);
 
             // Exact name match
-            if (nLocalName == nTsName) score += 60;
+            if (nLocalName == nTsName) score += 70; // Increased base score for exact match
+            else if (nLocalName.Length > 5 && nTsName.Length > 5)
+            {
+                 // Fuzzy Prefix Match (e.g. "LevelLoadingOptimizer" vs "LevelLoadingOptimization")
+                 int commonPrefix = GetCommonPrefixLength(nLocalName, nTsName);
+                 float ratio = (float)commonPrefix / Math.Max(nLocalName.Length, nTsName.Length);
+                 
+                 if (ratio >= 0.75f) score += 60; // Strong similarity
+                 
+                 // Name containment (e.g. "CustomBlocks" in "SuperCustomBlocks")
+                 else if (nTsName.Contains(nLocalName) || nLocalName.Contains(nTsName))
+                 {
+                     score += 50;
+                 }
+            }
             
             // GUID matches package name
             if (nLocalGuid == nTsName) score += 80;
@@ -92,6 +106,34 @@ namespace Rooster.Services
                 }
                 
                 if (allRemoteInLocal) score += 65;
+            }
+
+            // Website/Repo Name Match (e.g. "CustomBlocks" vs "https://github.com/Woedroe/UCH-CustomBlocks")
+            if (!string.IsNullOrEmpty(pkg.website_url))
+            {
+                string url = pkg.website_url.TrimEnd('/');
+                int lastSlash = url.LastIndexOf('/');
+                if (lastSlash >= 0 && lastSlash < url.Length - 1)
+                {
+                    string repoName = url.Substring(lastSlash + 1);
+                    string nRepoName = NormalizeName(repoName);
+                    
+                    if (nRepoName == nLocalName) score += 70;
+                    else if (nRepoName.Contains(nLocalName) || nLocalName.Contains(nRepoName))
+                    {
+                         // Require sufficient length to avoid false positives with short names
+                         if (nLocalName.Length > 4) 
+                         {
+                             // High confidence if the overlap is substantial
+                             score += 70; 
+                         }
+                    }
+                }
+            }
+
+            if (score > 40 && score < MIN_MATCH_SCORE)
+            {
+                RoosterPlugin.LogInfo($"Close Heuristic Miss: {localName} vs {pkg.full_name} -> Score: {score} (Repo: {pkg.website_url})");
             }
 
             return score;
@@ -141,6 +183,16 @@ namespace Rooster.Services
                 if (sub.Length > 2) tokens.Add(sub);
             }
             return tokens;
+        }
+
+        public static int GetCommonPrefixLength(string s1, string s2)
+        {
+            int len = Math.Min(s1.Length, s2.Length);
+            for (int i = 0; i < len; i++)
+            {
+                if (s1[i] != s2[i]) return i;
+            }
+            return len;
         }
     }
 }

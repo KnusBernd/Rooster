@@ -26,7 +26,7 @@ namespace Rooster
         {
             yield return new WaitForSecondsRealtime(2.0f);
 
-            RoosterPlugin.LogInfo("Starting Update Check (Auto-Discovery)...");
+            RoosterPlugin.LogInfo("Starting Update Check...");
 
             yield return ThunderstoreApi.FetchAllPackages((packages) => {
                 CachedPackages = packages;
@@ -39,7 +39,6 @@ namespace Rooster
                 yield break;
             }
 
-
             PendingUpdates.Clear();
             MatchedPackages.Clear();
             CheckComplete = false;
@@ -49,15 +48,14 @@ namespace Rooster
             List<ModUpdateInfo> manualUpdates = new List<ModUpdateInfo>();
             List<ModUpdateInfo> autoUpdates = new List<ModUpdateInfo>();
 
+            int pendingRequests = 0;
+
             foreach (var plugin in Chainloader.PluginInfos.Values)
             {
                 string modName = plugin.Metadata.Name;
                 string guid = plugin.Metadata.GUID;
 
                 RoosterConfig.RegisterMod(guid, modName);
-
-                // Removed early continue so matchedPkg and green star still populate
-                // if (RoosterConfig.IsModIgnored(guid)) { ... continue; }
 
                 ThunderstorePackage matchedPkg = ModMatcher.FindPackage(plugin, CachedPackages);
 
@@ -66,49 +64,80 @@ namespace Rooster
                     RoosterPlugin.LogInfo($"Matched {modName} -> {matchedPkg.full_name}");
                     MatchedPackages[guid] = matchedPkg;
 
-                    var updateInfo = VersionComparer.CheckForUpdate(plugin, matchedPkg);
-                    if (updateInfo != null)
+                    // Fetch fresh version from API (bypasses CDN cache) in PARALLEL
+                    string[] parts = matchedPkg.full_name.Split('-');
+                    if (parts.Length >= 2)
                     {
-                        if (RoosterConfig.IsModIgnored(guid))
-                        {
-                            RoosterPlugin.LogInfo($"Skipping update for ignored mod: {modName}");
-                            // Do not add to autoUpdates or manualUpdates
-                        }
-                        else if (RoosterConfig.IsModAutoUpdate(guid))
-                        {
-                            RoosterPlugin.LogInfo($"Auto-Update triggered for {modName}");
-                            autoUpdates.Add(updateInfo);
-                        }
-                        else
-                        {
-                            manualUpdates.Add(updateInfo);
-                        }
+                        string owner = parts[0];
+                        string pkgName = parts[1];
+                        
+                        pendingRequests++;
+                        RoosterPlugin.Instance.StartCoroutine(ThunderstoreApi.FetchFreshVersion(owner, pkgName, (ver, url) => {
+                            if (!string.IsNullOrEmpty(ver))
+                            {
+                                matchedPkg.latest.version_number = ver;
+                                if (!string.IsNullOrEmpty(url)) matchedPkg.latest.download_url = url;
+                            }
+                            pendingRequests--;
+                        }));
                     }
+                }
+                else
+                {
+                    RoosterPlugin.LogWarning($"Could not find matching Thunderstore package for installed plugin: {modName} ({guid})");
                 }
             }
 
+            // Wait for all parallel requests to complete
+            while (pendingRequests > 0)
+            {
+                yield return null;
+            }
+
+            // Process versions AFTER all fresh data is fetched
+            foreach (var plugin in Chainloader.PluginInfos.Values)
+            {
+                string guid = plugin.Metadata.GUID;
+                if (!MatchedPackages.TryGetValue(guid, out var matchedPkg)) continue;
+                string modName = plugin.Metadata.Name;
+
+                var updateInfo = VersionComparer.CheckForUpdate(plugin, matchedPkg);
+                if (updateInfo != null)
+                {
+                    if (RoosterConfig.IsModIgnored(guid) || UpdateLoopPreventer.IsVersionIgnored(guid, matchedPkg.latest.version_number))
+                    {
+                        RoosterPlugin.LogInfo($"Skipping update for ignored mod: {modName}");
+                    }
+                    else if (RoosterConfig.IsModAutoUpdate(guid))
+                    {
+                        RoosterPlugin.LogInfo($"Auto-Update triggered for {modName}");
+                        autoUpdates.Add(updateInfo);
+                    }
+                    else
+                    {
+                        manualUpdates.Add(updateInfo);
+                    }
+                }
+            }
+            
             if (autoUpdates.Count > 0)
             {
-                RoosterPlugin.LogInfo($"Processing {autoUpdates.Count} auto-updates...");
                 PendingUpdates.AddRange(autoUpdates);
-                
-
                 RoosterPlugin.Instance.StartCoroutine(UpdateAllCoroutine(autoUpdates, (status) => {}, () => {
-
                     RestartRequired = true;
-                    RoosterPlugin.LogInfo("Auto-Updates complete.");
                     Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
                 }));
             }
 
             PendingUpdates = manualUpdates;
-
-
             CheckComplete = true;
             RoosterPlugin.LogInfo($"Update Check Complete. Found {manualUpdates.Count} manual updates and {autoUpdates.Count} auto updates.");
+            
+            if (manualUpdates.Count > 0)
+            {
+                Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
+            }
         }
-
-
 
         /// <summary>Initiates mass update for all pending updates.</summary>
         public static void UpdateAll(Action<string> onStatusUpdate, Action onComplete)
@@ -124,55 +153,41 @@ namespace Rooster
             {
                 if (string.IsNullOrEmpty(update.DownloadUrl))
                 {
-                    string msg = $"Skipping {update.ModName} (No URL)";
-                    RoosterPlugin.LogWarning(msg);
-                    onStatusUpdate?.Invoke(msg);
-
+                    onStatusUpdate?.Invoke($"Skipping {update.ModName} (No URL)");
                     continue;
                 }
 
-                RoosterPlugin.LogInfo($"Processing update for {update.ModName}...");
-                string statusMsg = $"Downloading {update.ModName}...";
-                onStatusUpdate?.Invoke(statusMsg);
+                onStatusUpdate?.Invoke($"Downloading {update.ModName}...");
 
-
-                string cacheDir = Path.Combine(Path.GetDirectoryName(typeof(RoosterPlugin).Assembly.Location), "cache");
+                string cacheDir = Path.Combine(Paths.BepInExRootPath, "cache");
                 string zipPath = Path.Combine(cacheDir, $"{update.ModName}_{update.Version}.zip");
 
                 bool downloadSuccess = false;
                 yield return UpdateDownloader.DownloadFile(update.DownloadUrl, zipPath, (success, error) => 
                 {
                     downloadSuccess = success;
-                    if (!success) 
-                    {
-                        onStatusUpdate?.Invoke($"Download failed for {update.ModName}: {error}");
-                    }
+                    if (!success) onStatusUpdate?.Invoke($"Download failed: {error}");
                 });
 
                 if (downloadSuccess)
                 {
                     onStatusUpdate?.Invoke($"Installing {update.ModName}...");
                     bool installSuccess = false;
+                    
                     UpdateInstaller.InstallMod(zipPath, update.PluginInfo, (success, error) =>
                     {
+                        if (success) UpdateLoopPreventer.RegisterPendingInstall(update.PluginInfo.Metadata.GUID, update.Version);
+                        
                         installSuccess = success;
-                        if (!success)
-                        {
-                            onStatusUpdate?.Invoke($"Install failed for {update.ModName}: {error}");
-                        }
+                        if (!success) onStatusUpdate?.Invoke($"Install failed: {error}");
                     });
 
-                    if (installSuccess)
-                    {
-                        onStatusUpdate?.Invoke($"Updated {update.ModName}!");
-                    }
+                    if (installSuccess) onStatusUpdate?.Invoke($"Updated {update.ModName}!");
                 }
             }
 
             onStatusUpdate?.Invoke("All updates processed. Restart required.");
-            
             RestartRequired = true;
-
             PendingUpdates.Clear();
             
             yield return null; 
