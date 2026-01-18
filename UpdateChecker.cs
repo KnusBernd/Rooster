@@ -27,10 +27,7 @@ namespace Rooster
         public static string AutoUpdateStatus = "";
         public static List<ModUpdateInfo> PendingUpdates = new List<ModUpdateInfo>();
 
-        /// <summary>
-        /// Coroutine that runs the update check process.
-        /// Fetches packages from Thunderstore, matches them with local plugins, and identifies updates.
-        /// </summary>
+        /// <summary>Runs the update check process as a coroutine.</summary>
         public static IEnumerator CheckForUpdates()
         {
             yield return new WaitForSecondsRealtime(2.0f);
@@ -125,11 +122,7 @@ namespace Rooster
             return ModMatcher.FindPackage(plugin, CachedPackages);
         }
 
-        /// <summary>
-        /// Initiates the mass update process for all pending updates.
-        /// </summary>
-        /// <param name="onStatusUpdate">Callback for status messages (e.g., "Downloading...").</param>
-        /// <param name="onComplete">Callback invoked when all updates are processed.</param>
+        /// <summary>Initiates mass update for all pending updates.</summary>
         public static void UpdateAll(Action<string> onStatusUpdate, Action onComplete)
         {
             RoosterPlugin.Instance.StartCoroutine(UpdateAllCoroutine(PendingUpdates, onStatusUpdate, onComplete));

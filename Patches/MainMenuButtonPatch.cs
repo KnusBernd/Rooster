@@ -9,10 +9,6 @@ namespace Rooster.Patches
     /// </summary>
     public static class MainMenuButtonPatch
     {
-        /// <summary>
-        /// Applies the manual postfix patch to TabletMainMenuHome.Initialize.
-        /// </summary>
-        /// <param name="harmony">The Harmony instance.</param>
         public static void ApplyPatch(Harmony harmony)
         {
             var original = typeof(TabletMainMenuHome).GetMethod(nameof(TabletMainMenuHome.Initialize));
@@ -28,10 +24,6 @@ namespace Rooster.Patches
             }
         }
 
-        /// <summary>
-        /// Postfix method that runs after the main menu is initialized.
-        /// Clones an existing button to create the "Mods" button and sets up its click listener.
-        /// </summary>
         [HarmonyPostfix]
         public static void Postfix()
         {

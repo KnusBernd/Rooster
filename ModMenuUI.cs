@@ -22,10 +22,6 @@ namespace Rooster
         private static Vector2? _originalSize;
         private static Coroutine _cleanupCoroutine;
 
-        /// <summary>
-        /// Toggles the visibility of the mod menu UI elements.
-        /// </summary>
-        /// <param name="visible">True to show the menu; false to hide it.</param>
         public static void SetVisible(bool visible)
         {
             if (_viewportObj != null) _viewportObj.SetActive(visible);
@@ -37,9 +33,6 @@ namespace Rooster
             }
         }
 
-        /// <summary>
-        /// Opens the Mod Menu, hijacking the tablet overlay to display the list of mods.
-        /// </summary>
         public static void ShowModMenu()
         {
             RoosterPlugin.LogInfo("Opening Mod Menu...");
@@ -88,10 +81,6 @@ namespace Rooster
             }
         }
 
-        /// <summary>
-        /// Applies custom styling to the tablet modal to support a scrollable list.
-        /// </summary>
-        /// <param name="modal">The tablet modal overlay to style.</param>
         private static void ApplyStyling(TabletModalOverlay modal)
         {
             DestroyUI(modal);
@@ -187,11 +176,6 @@ namespace Rooster
 
             RoosterPlugin.LogInfo($"Created {_modButtons.Count} mod buttons.");
         }
-        /// <summary>
-        /// Creates a button for a specific plugin in the scrollable list.
-        /// </summary>
-        /// <param name="parent">The parent RectTransform (content area).</param>
-        /// <param name="plugin">The plugin info to display.</param>
         private static void CreateModButton(RectTransform parent, PluginInfo plugin)
         {
             if (_buttonTemplate == null)
@@ -273,11 +257,6 @@ namespace Rooster
             _modButtons.Add(btnObj);
         }
 
-        /// <summary>
-        /// Destroys all custom UI elements created by the Mod Menu.
-        /// Restores the original modal state if a modal is provided.
-        /// </summary>
-        /// <param name="modal">Optional modal to restore to original size.</param>
         public static void DestroyUI(TabletModalOverlay modal = null)
         {
             if (_viewportObj != null)
@@ -316,10 +295,6 @@ namespace Rooster
             _cleanupCoroutine = null;
         }
 
-        /// <summary>
-        /// Schedules the cleanup of UI elements to run after a short delay.
-        /// Useful for ensuring smooth transitions when closing the menu.
-        /// </summary>
         public static void ScheduleCleanup()
         {
             if (_cleanupCoroutine != null)

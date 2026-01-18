@@ -13,16 +13,9 @@ namespace Rooster.Services
     /// </summary>
     public static class ThunderstoreApi
     {
-        /// <summary>
-        /// The base API URL for UCH packages on Thunderstore.
-        /// </summary>
         public const string API_URL = "https://thunderstore.io/c/ultimate-chicken-horse/api/v1/package/";
 
-        /// <summary>
-        /// Fetches all available packages from the Thunderstore API.
-        /// Includes retry logic for robustness.
-        /// </summary>
-        /// <param name="onComplete">Callback invoked with the list of parsed packages.</param>
+        /// <summary>Fetches all packages from Thunderstore with retry logic.</summary>
         public static IEnumerator FetchAllPackages(Action<List<ThunderstorePackage>> onComplete)
         {
             int maxRetries = 3;
@@ -66,12 +59,7 @@ namespace Rooster.Services
             onComplete?.Invoke(new List<ThunderstorePackage>());
         }
 
-        /// <summary>
-        /// Manually parses the huge JSON response from Thunderstore to avoid memory overhead of full object deserialization.
-        /// Extracts only relevant fields (name, version, download_url, etc.).
-        /// </summary>
-        /// <param name="json">The raw JSON string.</param>
-        /// <returns>A list of lightweight ThunderstorePackage objects.</returns>
+        /// <summary>Manually parses JSON to extract package data (avoids full deserialization overhead).</summary>
         public static List<ThunderstorePackage> ParsePackageList(string json)
         {
             var packages = new List<ThunderstorePackage>();

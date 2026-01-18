@@ -11,13 +11,7 @@ namespace Rooster
     /// </summary>
     public static class UpdateDownloader
     {
-        /// <summary>
-        /// Downloads a file from a URL to a local destination.
-        /// </summary>
-        /// <param name="url">The URL to download from.</param>
-        /// <param name="destinationPath">The local path to save the file.</param>
-        /// <param name="expectedHash">Unused - Thunderstore API v1 does not provide file hashes.</param>
-        /// <param name="onComplete">Callback invoked with success status and error message (if any).</param>
+        /// <summary>Downloads a file from URL to local path. Hash param is unused (API v1 limitation).</summary>
         public static IEnumerator DownloadFile(string url, string destinationPath, string expectedHash, Action<bool, string> onComplete)
         {
             RoosterPlugin.LogInfo($"Starting download from {url} to {destinationPath}");

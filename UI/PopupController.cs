@@ -12,27 +12,20 @@ namespace Rooster.UI
         private static bool _updateShownThisSession = false;
         private static bool _isUpdating = false;
 
-        /// <summary>
-        /// Determines and displays the next priority popup in the queue.
-        /// Order: Beta Warning -> Restart Required -> Update Notification.
-        /// </summary>
         public static void ShowNextPopup()
         {
-            
             if (!_betaWarningShown && RoosterConfig.ShowBetaWarning.Value)
             {
                 ShowBetaWarning();
                 return;
             }
 
-            
             if (UpdateChecker.RestartRequired)
             {
                 ShowRestartRequired();
                 return;
             }
 
-            
             if (!_updateShownThisSession && 
                 (UpdateChecker.UpdatesAvailable.Count > 0 || UpdateChecker.PendingUpdates.Count > 0))
             {
@@ -41,9 +34,6 @@ namespace Rooster.UI
             }
         }
 
-        /// <summary>
-        /// Displays the Beta Warning popup if configured to show.
-        /// </summary>
         private static void ShowBetaWarning()
         {
             if (Tablet.clickEventReceiver?.modalOverlay == null) return;
@@ -57,7 +47,6 @@ namespace Rooster.UI
                 null
             );
 
-            
             modal.okButtonContainer.gameObject.SetActive(false);
             modal.onOffContainer.gameObject.SetActive(true);
 
@@ -67,7 +56,6 @@ namespace Rooster.UI
             var offLabel = modal.offButton.GetComponentInChildren<TabletTextLabel>();
             if (offLabel != null) offLabel.text = "Never show again";
 
-            
             var buttonRect = modal.onOffContainer.GetComponent<RectTransform>();
             if (buttonRect != null)
             {
@@ -81,9 +69,6 @@ namespace Rooster.UI
             _betaWarningShown = true;
         }
 
-        /// <summary>
-        /// Displays the "Restart Required" popup after updates have been installed.
-        /// </summary>
         private static void ShowRestartRequired()
         {
             if (Tablet.clickEventReceiver?.modalOverlay == null) return;
@@ -112,12 +97,6 @@ namespace Rooster.UI
             _updateShownThisSession = true;
         }
 
-        /// <summary>
-        /// Handles button clicks from the tablet modal based on the current menu state.
-        /// </summary>
-        /// <param name="modal">The tablet modal overlay.</param>
-        /// <param name="idx">The index of the button clicked (0 = Off/Left, 1 = On/Right).</param>
-        /// <returns>True if the click should be propagated; otherwise, false.</returns>
         public static bool HandleChoice(TabletModalOverlay modal, int idx)
         {
             var state = Patches.MainMenuPopupPatch.CurrentMenuState;

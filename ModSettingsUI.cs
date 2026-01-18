@@ -21,11 +21,6 @@ namespace Rooster
         private static TabletButton _ignoreOnBtn;
         private static TabletButton _ignoreOffBtn;
 
-        /// <summary>
-        /// Shows the settings menu for a specific mod.
-        /// </summary>
-        /// <param name="plugin">The BepInEx PluginInfo of the mod.</param>
-        /// <param name="thunderstoreFullName">The Thunderstore full name (if known).</param>
         public static void ShowModSettings(PluginInfo plugin, string thunderstoreFullName)
         {
             if (Tablet.clickEventReceiver == null || Tablet.clickEventReceiver.modalOverlay == null)
@@ -69,10 +64,6 @@ namespace Rooster
             }
         }
 
-        /// <summary>
-        /// Creates the actual settings UI elements (toggles) within the modal.
-        /// </summary>
-        /// <param name="modal">The tablet modal overlay.</param>
         private static void CreateSettingsUI(TabletModalOverlay modal)
         {
             CleanupCustomUI();
@@ -148,9 +139,6 @@ namespace Rooster
             LayoutRebuilder.ForceRebuildLayoutImmediate(containerRect);
         }
 
-        /// <summary>
-        /// Helper method to create a toggle row with "On" and "Off" buttons.
-        /// </summary>
         private static void CreateToggleRow(Transform parent, TabletModalOverlay modal, string labelText,
             bool initialValue, Action onOn, Action onOff, 
             out TabletButton onBtn, out TabletButton offBtn)
@@ -263,9 +251,6 @@ namespace Rooster
             offBtnObj.SetActive(true);
         }
 
-        /// <summary>
-        /// Updates the visual style of the On/Off buttons based on the current state.
-        /// </summary>
         private static void UpdateButtonStyles(TabletButton onBtn, TabletButton offBtn, bool isOn)
         {
             if (onBtn != null)
@@ -280,9 +265,6 @@ namespace Rooster
             }
         }
 
-        /// <summary>
-        /// Cleans up the custom settings UI elements.
-        /// </summary>
         public static void CleanupCustomUI()
         {
             if (_settingsContainer != null)

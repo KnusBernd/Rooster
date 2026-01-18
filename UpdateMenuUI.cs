@@ -16,9 +16,6 @@ namespace Rooster
     {
         private static float baseFontSize = -1f;
 
-        /// <summary>
-        /// Displays the update menu with a list of available updates.
-        /// </summary>
         public static void ShowUpdateMenu()
         {
             if (Tablet.clickEventReceiver == null || Tablet.clickEventReceiver.modalOverlay == null) return;
@@ -78,10 +75,6 @@ namespace Rooster
             }
         }
 
-        /// <summary>
-        /// Applies custom styling to the tablet modal to support a scrollable text view.
-        /// </summary>
-        /// <param name="modal">The tablet modal overlay to style.</param>
         private static void ApplyStyling(TabletModalOverlay modal)
         {
             var textObj = modal.simpleMessageText.gameObject;
@@ -155,10 +148,6 @@ namespace Rooster
             LayoutRebuilder.ForceRebuildLayoutImmediate(textRect);
         }
 
-        /// <summary>
-        /// Destroys all custom UI elements created by the Update Menu.
-        /// Resets the modal text and layout to their original state.
-        /// </summary>
         public static void DestroyUI()
         {
             if (Tablet.clickEventReceiver?.modalOverlay?.simpleMessageContainer == null) return;

@@ -10,12 +10,7 @@ namespace Rooster.Services
     /// </summary>
     public static class VersionComparer
     {
-        /// <summary>
-        /// Checks if a newer version is available for a given plugin compared to the remote package.
-        /// </summary>
-        /// <param name="plugin">The local plugin info.</param>
-        /// <param name="remotePkg">The remote Thunderstore package.</param>
-        /// <returns>A ModUpdateInfo object if an update is available; otherwise, null.</returns>
+        /// <summary>Checks if a newer version is available for a plugin.</summary>
         public static ModUpdateInfo CheckForUpdate(PluginInfo plugin, ThunderstorePackage remotePkg)
         {
             if (remotePkg?.latest == null) return null;

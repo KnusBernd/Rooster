@@ -12,13 +12,7 @@ namespace Rooster
     /// </summary>
     public static class UpdateInstaller
     {
-        /// <summary>
-        /// Installs a mod update from a ZIP file.
-        /// Handles different package structures (Plugin-folder based vs Root-based).
-        /// </summary>
-        /// <param name="zipPath">Path to the downloaded ZIP file.</param>
-        /// <param name="pluginInfo">The existing plugin info to update.</param>
-        /// <param name="onComplete">Callback invoked with success status and error message.</param>
+        /// <summary>Installs a mod update from a ZIP file.</summary>
         public static void InstallMod(string zipPath, BepInEx.PluginInfo pluginInfo, Action<bool, string> onComplete)
         {
             // Temporary extraction path

@@ -34,13 +34,7 @@ namespace Rooster.UI
             return _whiteSprite;
         }
 
-        /// <summary>
-        /// Creates a styled scrollbar and attaches it to a ScrollRect.
-        /// </summary>
-        /// <param name="container">The container to parent the scrollbar to.</param>
-        /// <param name="scrollRect">The ScrollRect to control.</param>
-        /// <param name="name">Prefix name for the scrollbar object.</param>
-        /// <returns>The created scrollbar GameObject.</returns>
+        /// <summary>Creates a styled scrollbar and attaches it to a ScrollRect.</summary>
         public static GameObject CreateScrollbar(RectTransform container, ScrollRect scrollRect, string name)
         {
             Sprite whiteSprite = GetWhiteSprite();
