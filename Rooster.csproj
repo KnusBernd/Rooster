@@ -81,7 +81,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Plugin.cs" />
-    <Compile Include="ChaosInstaller.cs" />
+
     <Compile Include="RoosterConfig.cs" />
     <Compile Include="UpdateChecker.cs" />
     <Compile Include="UpdateDownloader.cs" />
