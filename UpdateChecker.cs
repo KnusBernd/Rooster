@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Collections.Concurrent;
 using BepInEx;
 using BepInEx.Bootstrap;
 using UnityEngine;
@@ -37,8 +36,7 @@ namespace Rooster
             yield return new WaitForSecondsRealtime(2.0f);
 
             RoosterPlugin.LogInfo("Starting Update Check (Auto-Discovery)...");
-            
-            
+
             yield return ThunderstoreApi.FetchAllPackages((packages) => {
                 CachedPackages = packages;
             });
@@ -50,22 +48,12 @@ namespace Rooster
                 yield break;
             }
 
-            
-            ConcurrentDictionary<string, ThunderstorePackage> packageMap = new ConcurrentDictionary<string, ThunderstorePackage>(StringComparer.OrdinalIgnoreCase);
-            foreach (var pkg in CachedPackages)
-            {
-                if (!packageMap.ContainsKey(pkg.name))
-                {
-                    packageMap[pkg.name] = pkg;
-                }
-            }
-            
             UpdatesAvailable.Clear();
             PendingUpdates.Clear();
             MatchedPackages.Clear();
             CheckComplete = false;
 
-            RoosterPlugin.LogInfo($"Scanning {Chainloader.PluginInfos.Count} plugins against {packageMap.Count} online packages...");
+            RoosterPlugin.LogInfo($"Scanning {Chainloader.PluginInfos.Count} plugins against {CachedPackages.Count} online packages...");
             
             List<ModUpdateInfo> manualUpdates = new List<ModUpdateInfo>();
             List<ModUpdateInfo> autoUpdates = new List<ModUpdateInfo>();
@@ -83,8 +71,7 @@ namespace Rooster
                 }
 
                 RoosterConfig.RegisterMod(guid, modName);
-                
-                
+
                 ThunderstorePackage matchedPkg = ModMatcher.FindPackage(plugin, CachedPackages);
 
                 if (matchedPkg != null)
@@ -96,7 +83,7 @@ namespace Rooster
                     if (updateInfo != null)
                     {
                         // Check auto-update configuration
-                        if (RoosterConfig.IsDataAutoUpdate(guid, matchedPkg.full_name))
+                        if (RoosterConfig.IsDataAutoUpdate(guid))
                         {
                             RoosterPlugin.LogInfo($"Auto-Update triggered for {modName}");
                             autoUpdates.Add(updateInfo);
@@ -109,7 +96,6 @@ namespace Rooster
                 }
             }
 
-            
             // Execute pending auto-updates
             if (autoUpdates.Count > 0)
             {
@@ -133,22 +119,12 @@ namespace Rooster
             RoosterPlugin.LogInfo($"Update Check Complete. Found {manualUpdates.Count} manual updates and {autoUpdates.Count} auto updates.");
         }
 
-        
-        
-        
-        /// <summary>
-        /// Finds the matching Thunderstore package for a given local plugin.
-        /// </summary>
-        /// <param name="plugin">The local plugin info.</param>
-        /// <returns>The matching ThunderstorePackage, or null if not found.</returns>
+        /// <summary>Finds the matching Thunderstore package for a plugin.</summary>
         public static ThunderstorePackage FindPackage(PluginInfo plugin)
         {
             return ModMatcher.FindPackage(plugin, CachedPackages);
         }
 
-        
-        
-        
         /// <summary>
         /// Initiates the mass update process for all pending updates.
         /// </summary>

@@ -38,13 +38,7 @@ namespace Rooster.Services
             return null;
         }
 
-        /// <summary>
-        /// Compares two version strings to determine if the 'latest' is newer than 'current'.
-        /// Handles standard semantic versioning (Major.Minor.Patch).
-        /// </summary>
-        /// <param name="current">The current version string.</param>
-        /// <param name="latest">The latest version string.</param>
-        /// <returns>True if 'latest' is strictly greater than 'current'; otherwise, false.</returns>
+        /// <summary>Returns true if 'latest' is strictly greater than 'current' (semver).</summary>
         public static bool IsNewer(string current, string latest)
         {
             RoosterPlugin.LogInfo($"Comparing versions: Local='{current}' vs Remote='{latest}'");
@@ -76,11 +70,7 @@ namespace Rooster.Services
             }
         }
 
-        /// <summary>
-        /// Cleans a version string by removing 'v' prefixes and build metadata (after hyphen).
-        /// </summary>
-        /// <param name="version">The raw version string.</param>
-        /// <returns>The cleaned version string (e.g., "1.0.0").</returns>
+        /// <summary>Strips 'v' prefix and build metadata (after hyphen).</summary>
         public static string CleanVersionString(string version)
         {
             if (string.IsNullOrEmpty(version)) return "0.0.0";

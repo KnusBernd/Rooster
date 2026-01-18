@@ -94,8 +94,6 @@
     <Compile Include="Models\ThunderstorePackage.cs" />
     <Compile Include="Models\ThunderstoreVersion.cs" />
     <Compile Include="Models\ModUpdateInfo.cs" />
-    <Compile Include="Models\ModMapData.cs" />
-    <Compile Include="Models\PackageListWrapper.cs" />
     <Compile Include="Services\ThunderstoreApi.cs" />
     <Compile Include="Services\ModMatcher.cs" />
     <Compile Include="Services\VersionComparer.cs" />

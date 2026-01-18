@@ -11,17 +11,9 @@ namespace Rooster.Services
     /// </summary>
     public static class ModMatcher
     {
-        /// <summary>
-        /// The minimum score required to consider a match valid.
-        /// </summary>
         public const int MIN_MATCH_SCORE = 60;
 
-        /// <summary>
-        /// Attempts to find the best matching Thunderstore package for a given plugin.
-        /// </summary>
-        /// <param name="plugin">The local plugin info.</param>
-        /// <param name="packages">The list of available Thunderstore packages.</param>
-        /// <returns>The best matching package, or null if no match exceeds the threshold.</returns>
+        /// <summary>Finds the best matching Thunderstore package for a plugin.</summary>
         public static ThunderstorePackage FindPackage(PluginInfo plugin, List<ThunderstorePackage> packages)
         {
             if (packages == null || packages.Count == 0) return null;
@@ -51,14 +43,7 @@ namespace Rooster.Services
             return null;
         }
 
-        /// <summary>
-        /// Calculates a similarity score between a local plugin and a remote package.
-        /// Considers GUID, name tokens, and namespace overlaps.
-        /// </summary>
-        /// <param name="pkg">The remote Thunderstore package.</param>
-        /// <param name="localGuid">The local plugin GUID.</param>
-        /// <param name="localName">The local plugin name.</param>
-        /// <returns>An integer score representing the match confidence.</returns>
+        /// <summary>Calculates a similarity score based on GUID, name tokens, and namespace.</summary>
         public static int ScoreMatch(ThunderstorePackage pkg, string localGuid, string localName)
         {
             int score = 0;
@@ -73,7 +58,6 @@ namespace Rooster.Services
             string nTsName = NormalizeName(tsName);
             string nTsNamespace = NormalizeName(tsNamespace);
 
-            
             // Exact name match
             if (nLocalName == nTsName) score += 60;
             
@@ -89,8 +73,7 @@ namespace Rooster.Services
                 if (nTsName.Length >= 12) score += 65; 
                 else score += 50; 
             }
-            
-            
+
             // Token-based matching for formatting variations
             HashSet<string> localTokens = Tokenize(localName);
             HashSet<string> remoteTokens = Tokenize(tsName);
@@ -114,14 +97,7 @@ namespace Rooster.Services
             return score;
         }
 
-        
-        
-        
-        /// <summary>
-        /// Normalizes a string by removing non-alphanumeric characters and converting to lowercase.
-        /// </summary>
-        /// <param name="input">The input string.</param>
-        /// <returns>The normalized string.</returns>
+        /// <summary>Removes non-alphanumeric chars and lowercases.</summary>
         public static string NormalizeName(string input)
         {
             if (string.IsNullOrEmpty(input)) return "";
@@ -137,11 +113,7 @@ namespace Rooster.Services
             return new string(arr, 0, idx);
         }
 
-        /// <summary>
-        /// Splits a string into unique normalized tokens based on CamelCase and non-alphanumeric boundaries.
-        /// </summary>
-        /// <param name="input">The input string.</param>
-        /// <returns>A hash set of unique tokens.</returns>
+        /// <summary>Splits on CamelCase and non-alphanumeric boundaries.</summary>
         public static HashSet<string> Tokenize(string input)
         {
             var tokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

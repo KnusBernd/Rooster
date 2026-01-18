@@ -30,12 +30,9 @@ namespace Rooster
             LogInfo("Rooster loaded.");
         }
 
-        /// <summary>
-        /// Starts the update check coroutine.
-        /// </summary>
         private void Start()
         {
-             StartCoroutine(UpdateChecker.CheckForUpdates());
+            StartCoroutine(UpdateChecker.CheckForUpdates());
         }
 
         /// <summary>
@@ -49,9 +46,6 @@ namespace Rooster
             }
         }
 
-        /// <summary>
-        /// Deletes old .old files from the plugins directory.
-        /// </summary>
         private void CleanupOldFiles()
         {
             try 
@@ -66,31 +60,10 @@ namespace Rooster
             catch { }
         }
 
-        /// <summary>
-        /// Logs an informational message.
-        /// </summary>
-        /// <param name="message">The message to log.</param>
-        public static void LogInfo(string message)
-        {
-            LoggerInstance.LogInfo(message);
-        }
+        public static void LogInfo(string message) => LoggerInstance.LogInfo(message);
 
-        /// <summary>
-        /// Logs a warning message.
-        /// </summary>
-        /// <param name="message">The warning message to log.</param>
-        public static void LogWarning(string message)
-        {
-            LoggerInstance.LogWarning(message);
-        }
+        public static void LogWarning(string message) => LoggerInstance.LogWarning(message);
 
-        /// <summary>
-        /// Logs an error message.
-        /// </summary>
-        /// <param name="message">The error message to log.</param>
-        public static void LogError(string message)
-        {
-            LoggerInstance.LogError(message);
-        }
+        public static void LogError(string message) => LoggerInstance.LogError(message);
     }
 }

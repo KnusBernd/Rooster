@@ -12,11 +12,6 @@ namespace Rooster.UI
         private static Texture2D _whiteTexture;
         private static Sprite _whiteSprite;
 
-        /// <summary>
-        /// Gets or creates a 4x4 white texture.
-        /// Useful for creating solid colored UI elements without asset bundles.
-        /// </summary>
-        /// <returns>A simple white Texture2D.</returns>
         public static Texture2D GetWhiteTexture()
         {
             if (_whiteTexture == null)
@@ -30,10 +25,6 @@ namespace Rooster.UI
             return _whiteTexture;
         }
 
-        /// <summary>
-        /// Gets or creates a Sprite from the white texture.
-        /// </summary>
-        /// <returns>A Sprite usable in Image components.</returns>
         public static Sprite GetWhiteSprite()
         {
             if (_whiteSprite == null)

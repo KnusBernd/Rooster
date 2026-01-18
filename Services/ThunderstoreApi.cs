@@ -171,9 +171,7 @@ namespace Rooster.Services
             return -1;
         }
 
-        /// <summary>
-        /// Helper to extract a value for a specific key from a JSON fragment using regex.
-        /// </summary>
+        /// <summary>Extracts a string value for a given key from a JSON fragment.</summary>
         public static string ExtractJsonValue(string source, string key)
         {
             string pattern = $"\"{key}\"\\s*:\\s*\"([^\"]+)\"";
