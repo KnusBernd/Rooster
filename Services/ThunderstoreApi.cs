@@ -217,6 +217,7 @@ namespace Rooster.Services
             }
             return null;
         }
+
         public static List<string> ExtractJsonStringArray(string source, string key)
         {
             var list = new List<string>();

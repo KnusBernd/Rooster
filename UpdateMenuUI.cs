@@ -140,16 +140,13 @@ namespace Rooster
             var vp = container.Find("UpdateMenuViewport");
             if (vp != null)
             {
-                
                 if (modal.simpleMessageText != null && modal.simpleMessageText.transform.parent == vp)
                 {
                     modal.simpleMessageText.transform.SetParent(container, false);
                     
-                  
                     var textRect = modal.simpleMessageText.GetComponent<RectTransform>();
                     if (textRect != null)
                     {
-                        
                         var fitter = modal.simpleMessageText.GetComponent<ContentSizeFitter>();
                         if (fitter != null) UnityEngine.Object.DestroyImmediate(fitter);
                     }

@@ -68,6 +68,7 @@ namespace Rooster
                 entry.Value = enabled;
             }
         }
+
         public static void SaveConfig()
         {
             _config?.Save();

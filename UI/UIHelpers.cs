@@ -40,7 +40,6 @@ namespace Rooster.UI
             Sprite whiteSprite = GetWhiteSprite();
             int layer = container.gameObject.layer;
 
-            
             var sbObj = new GameObject($"{name}Scrollbar", typeof(RectTransform), typeof(Scrollbar), typeof(Image));
             sbObj.layer = layer;
             sbObj.transform.SetParent(container, false);
@@ -52,19 +51,16 @@ namespace Rooster.UI
             var sb = sbObj.GetComponent<Scrollbar>();
             var sbImg = sbObj.GetComponent<Image>();
 
-            
             sbRect.anchorMin = new Vector2(1f, 0f); 
             sbRect.anchorMax = new Vector2(1f, 1f);
             sbRect.pivot = new Vector2(1f, 0.5f);
             sbRect.sizeDelta = new Vector2(40, -20);
             sbRect.anchoredPosition = new Vector2(-10, 0);
 
-            
             sbImg.sprite = whiteSprite;
             sbImg.color = new Color(0.1f, 0.1f, 0.1f, 0.5f);
             sbImg.type = Image.Type.Sliced;
 
-            
             var handleArea = new GameObject("Handle Area", typeof(RectTransform));
             handleArea.layer = layer;
             handleArea.transform.SetParent(sbRect, false);
@@ -73,7 +69,6 @@ namespace Rooster.UI
             haRect.anchorMax = Vector2.one;
             haRect.sizeDelta = new Vector2(-4, -4);
 
-            
             var handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
             handle.layer = layer;
             handle.transform.SetParent(haRect, false);
@@ -85,7 +80,6 @@ namespace Rooster.UI
             hImg.type = Image.Type.Sliced;
             hRect.sizeDelta = Vector2.zero;
 
-            
             sb.handleRect = hRect;
             sb.targetGraphic = hImg;
             sb.direction = Scrollbar.Direction.BottomToTop;

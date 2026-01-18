@@ -10,22 +10,14 @@ namespace Rooster.Patches
     [HarmonyPatch(typeof(TabletMainMenuHome), "Initialize")]
     public static class MainMenuButtonPatch
     {
-
-
         [HarmonyPostfix]
         public static void Postfix()
         {
             GameObject existingBtn = FindButtonByLabel("Mods");
-            if (existingBtn != null)
-            {
-                RoosterPlugin.LogInfo("Mods button already exists, skipping creation");
-                return;
-            }
+            if (existingBtn != null) return;
 
             try
             {
-                RoosterPlugin.LogInfo("Creating Mods button...");
-
                 GameObject optionsButton = FindFirstAvailableButton(new[] { "OPTIONS", "Options", "PLAY", "Play", "Play Local", "Play Online" });
                 if (optionsButton == null)
                 {
@@ -73,16 +65,11 @@ namespace Rooster.Patches
                 var tabletButton = modsButton.GetComponent<TabletButton>();
                 if (tabletButton != null)
                 {
-                    
                     tabletButton.OnClick = new TabletButtonEvent();
-                    tabletButton.OnClick.AddListener((controller) => 
-                    {
-                        RoosterPlugin.LogInfo("Mods button clicked!");
+                    tabletButton.OnClick.AddListener((controller) => {
                         ModMenuUI.ShowModMenu();
                     });
                 }
-
-                RoosterPlugin.LogInfo("Mods button successfully created!");
             }
             catch (System.Exception ex)
             {

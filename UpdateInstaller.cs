@@ -55,15 +55,10 @@ namespace Rooster
                 
                 RoosterPlugin.LogInfo($"Target Directory: {targetDirectory}");
 
-                // 3. Cleanup Old Files (if updating existing)
-                // Note: The original logic for 'pluginInfo' cleanup was specific to InstallMod.
-                // However, the CopyDirectory method handles hot-swapping and backups for *any* existing file in the target.
-                // We rely on that robust "move to .old" logic within CopyDirectory.
-
-                // 4. Install Files
+                // 3. Install Files
                 CopyDirectory(packageRoot, targetDirectory, true);
 
-                // 5. Clear Cache
+                // 4. Clear Cache
                 ClearBepInExCache();
 
                 RoosterPlugin.LogInfo("Installation successful. Restart required.");
@@ -131,27 +126,9 @@ namespace Rooster
             if (rootDirs.Length == 1 && !hasLooseFiles)
             {
                 string subDirName = Path.GetFileName(rootDirs[0]);
-                // If the default strategy would put us in "plugins/ModName", and we see "ModName" inside the zip,
-                // we might want to unwrap it? 
-                // Currently maintaining existing logic:
-                // If we found a single folder, we often want to peek into it to see if it Matches our target, 
-                // OR we basically say "The zip contains the folder, so install to plugins/"
-                
-                // For simplicity/parity with old code:
-                // If context was "New Install", default strategy suggests "plugins/ModName".
-                // If zip is "ModName/Mod.dll", checking "plugins/ModName" -> we would end up with "plugins/ModName/ModName/Mod.dll"?
-                // The old logic handled this "unwrap" specifically.
-                
                 // Simplified "Unwrap" Check:
-                // If we are targeting "plugins/Foo" and the zip has "Foo/" inside it...
-                // Actually, simplest is: If single folder, install to plugins/ (letting the folder be the container)
-                // BUT current plugins might expect specific paths.
-                
-                // Let's stick to the specific "Single inner folder" logic from before but cleaner:
+                // If single folder, install to plugins/ (letting the folder be the container)
                 RoosterPlugin.LogInfo($"Detected single inner folder '{subDirName}'. Using it as container.");
-                 // We effectively change the *source* to be inside, 
-                 // which means we return the parent of the target? 
-                 // No, standard practice: return "plugins/SubDirName"
                 return Path.Combine(Paths.PluginPath, subDirName);
             }
 

@@ -13,8 +13,6 @@ namespace Rooster.Patches
 
         public static MenuState CurrentMenuState = MenuState.None;
 
-
-
         [HarmonyPatch(typeof(MainMenuControl), "JoinControllerToMainMenu")]
         [HarmonyPostfix]
         public static void Postfix()

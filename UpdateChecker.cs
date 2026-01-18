@@ -5,7 +5,6 @@ using System.IO;
 using BepInEx;
 using BepInEx.Bootstrap;
 using UnityEngine;
-using System.Linq;
 using Rooster.Models;
 using Rooster.Services;
 
@@ -13,7 +12,6 @@ namespace Rooster
 {
     public class UpdateChecker
     {
-
         public static bool CheckComplete = false;
         public static List<ThunderstorePackage> CachedPackages = new List<ThunderstorePackage>();
         public static Dictionary<string, ThunderstorePackage> MatchedPackages = new Dictionary<string, ThunderstorePackage>(StringComparer.OrdinalIgnoreCase);
@@ -31,8 +29,6 @@ namespace Rooster
             // Start notification loop
             Coroutine notificationRoutine = RoosterPlugin.Instance.StartCoroutine(KeepAliveNotification());
 
-            RoosterPlugin.LogInfo("Starting Update Check...");
-
             yield return ThunderstoreApi.FetchAllPackages((packages) => {
                 CachedPackages = packages;
             });
@@ -48,8 +44,6 @@ namespace Rooster
             PendingUpdates.Clear();
             MatchedPackages.Clear();
 
-            RoosterPlugin.LogInfo($"Scanning {Chainloader.PluginInfos.Count} plugins against {CachedPackages.Count} online packages...");
-            
             List<ModUpdateInfo> manualUpdates = new List<ModUpdateInfo>();
             List<ModUpdateInfo> autoUpdates = new List<ModUpdateInfo>();
 
@@ -66,7 +60,6 @@ namespace Rooster
 
                 if (matchedPkg != null)
                 {
-                    RoosterPlugin.LogInfo($"Matched {modName} -> {matchedPkg.full_name}");
                     MatchedPackages[guid] = matchedPkg;
 
                     // Fetch fresh version from API (bypasses CDN cache) in PARALLEL
@@ -86,10 +79,6 @@ namespace Rooster
                             pendingRequests--;
                         }));
                     }
-                }
-                else
-                {
-                    RoosterPlugin.LogWarning($"Could not find matching Thunderstore package for installed plugin: {modName} ({guid})");
                 }
             }
 
@@ -111,7 +100,7 @@ namespace Rooster
                 {
                     if (RoosterConfig.IsModIgnored(guid) || UpdateLoopPreventer.IsVersionIgnored(guid, matchedPkg.latest.version_number))
                     {
-                        RoosterPlugin.LogInfo($"Skipping update for ignored mod: {modName}");
+                        // Update ignored
                     }
                     else if (RoosterConfig.IsModAutoUpdate(guid))
                     {
@@ -142,13 +131,17 @@ namespace Rooster
             
             if (manualUpdates.Count > 0)
             {
+                try {
+                     if (UserMessageManager.Instance != null && UserMessageManager.Instance.MessageHolderPrefab != null)
+                        UserMessageManager.Instance.UserMessage("Mod Updates found!", 3.0f, UserMessageManager.UserMsgPriority.lo, false);
+                } catch {}
                 Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
             }
             else
             {
                 try {
                      if (UserMessageManager.Instance != null && UserMessageManager.Instance.MessageHolderPrefab != null)
-                        UserMessageManager.Instance.UserMessage("No updates found.", 3.0f, UserMessageManager.UserMsgPriority.lo, false);
+                        UserMessageManager.Instance.UserMessage("No Mod Updates found.", 3.0f, UserMessageManager.UserMsgPriority.lo, false);
                 } catch {}
             }
         }
@@ -164,7 +157,7 @@ namespace Rooster
                     if (UserMessageManager.Instance != null && UserMessageManager.Instance.MessageHolderPrefab != null)
                     {
                          // Use a short duration (2s) and refresh it every 1s
-                        UserMessageManager.Instance.UserMessage("Checking for updates...", 2.0f, UserMessageManager.UserMsgPriority.lo, false);
+                        UserMessageManager.Instance.UserMessage("Checking for Mod Updates...", 2.0f, UserMessageManager.UserMsgPriority.lo, false);
                     }
                 }
                 catch { }

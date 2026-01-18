@@ -35,7 +35,6 @@ namespace Rooster
 
         public static void ShowModMenu()
         {
-            RoosterPlugin.LogInfo("Opening Mod Menu...");
             Patches.MainMenuPopupPatch.CurrentMenuState = Patches.MainMenuPopupPatch.MenuState.ModMenu;
             if (_cleanupCoroutine != null)
             {
@@ -52,9 +51,7 @@ namespace Rooster
             var modal = Tablet.clickEventReceiver.modalOverlay;
             
             int modCount = Chainloader.PluginInfos.Count;
-            modal.ShowSimpleMessage($"Installed Mods ({modCount})", "", () => {
-                RoosterPlugin.LogInfo("Mod Menu closed via Back button");
-            });
+            modal.ShowSimpleMessage($"Installed Mods ({modCount})", "", () => { });
             
             modal.okButtonContainer.gameObject.SetActive(true);
             var okLabel = modal.okButton.GetComponentInChildren<TabletTextLabel>();
@@ -62,7 +59,6 @@ namespace Rooster
 
             modal.okButton.OnClick = new TabletButtonEvent();
             modal.okButton.OnClick.AddListener((cursor) => {
-                RoosterPlugin.LogInfo("Mod Menu closed via Back button");
                 modal.Close();
                 _cleanupCoroutine = RoosterPlugin.Instance.StartCoroutine(CleanupCoroutine(modal));
             });
@@ -90,9 +86,7 @@ namespace Rooster
             if (container == null) return;
             var containerRect = container.GetComponent<RectTransform>();
 
-            RoosterPlugin.LogInfo("Applying button list styling...");
-
-             if (!_originalSize.HasValue)
+            if (!_originalSize.HasValue)
             {
                 _originalSize = containerRect.sizeDelta;
             }
@@ -173,9 +167,8 @@ namespace Rooster
 
             UnityEngine.Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
-
-            RoosterPlugin.LogInfo($"Created {_modButtons.Count} mod buttons.");
         }
+
         private static void CreateModButton(RectTransform parent, PluginInfo plugin)
         {
             if (_buttonTemplate == null)
@@ -223,11 +216,8 @@ namespace Rooster
                 tabletBtn.OnClick.AddListener((cursor) => {
                     try
                     {
-                        RoosterPlugin.LogInfo($"Opening settings for: {plugin.Metadata.Name}");
-                        
                         var pkg = Services.ModMatcher.FindPackage(plugin, UpdateChecker.CachedPackages);
                         string tsFullName = pkg?.full_name;
-                        
                         ModSettingsUI.ShowModSettings(plugin, tsFullName);
                     }
                     catch (Exception ex)
@@ -288,6 +278,7 @@ namespace Rooster
                 _originalSize = null;
             }
         }
+
         private static IEnumerator CleanupCoroutine(TabletModalOverlay modal)
         {
             yield return new WaitForSecondsRealtime(0.4f);
