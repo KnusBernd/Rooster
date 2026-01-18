@@ -54,13 +54,13 @@ namespace Rooster
                 string modName = plugin.Metadata.Name;
                 string guid = plugin.Metadata.GUID;
 
+                RoosterConfig.RegisterMod(guid, modName);
+
                 if (RoosterConfig.IsModIgnored(guid))
                 {
                     RoosterPlugin.LogInfo($"Skipping ignored mod: {modName}");
                     continue;
                 }
-
-                RoosterConfig.RegisterMod(guid, modName);
 
                 ThunderstorePackage matchedPkg = ModMatcher.FindPackage(plugin, CachedPackages);
 
