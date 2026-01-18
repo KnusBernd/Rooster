@@ -70,6 +70,45 @@ namespace Rooster
 
                 RoosterPlugin.LogInfo($"Target Directory: {targetDirectory}");
 
+                // Anti-Duplicate Logic:
+                // Check if the update installs the main DLL to a new location (e.g. folder rename).
+                // If so, delete the old file to prevent duplicate plugins.
+                string dllName = Path.GetFileName(pluginInfo.Location);
+                string newParamsPath = Directory.GetFiles(packageRoot, dllName, SearchOption.AllDirectories).FirstOrDefault();
+                
+                if (!string.IsNullOrEmpty(newParamsPath))
+                {
+                    string relativePath = newParamsPath.Substring(packageRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    string projectedPath = Path.Combine(targetDirectory, relativePath);
+                    string currentPath = pluginInfo.Location;
+
+                    // Normalize paths for comparison
+                    projectedPath = Path.GetFullPath(projectedPath);
+                    currentPath = Path.GetFullPath(currentPath);
+
+                    if (!string.Equals(projectedPath, currentPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        RoosterPlugin.LogWarning($"Detected install path change for {pluginInfo.Metadata.Name}.");
+                        RoosterPlugin.LogWarning($"Old: {currentPath}");
+                        RoosterPlugin.LogWarning($"New: {projectedPath}");
+                        
+                        try 
+                        {
+                            if (File.Exists(currentPath))
+                            {
+                                string oldBackup = currentPath + ".old";
+                                if (File.Exists(oldBackup)) File.Delete(oldBackup);
+                                File.Move(currentPath, oldBackup);
+                                RoosterPlugin.LogInfo("Moved old plugin file to .old to prevent duplicates.");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            RoosterPlugin.LogError($"Failed to cleanup old plugin file: {ex.Message}");
+                        }
+                    }
+                }
+
                 // Copy Files Recursively
                 CopyDirectory(packageRoot, targetDirectory, true);
 
