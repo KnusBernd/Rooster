@@ -13,11 +13,10 @@ namespace Rooster
     {
         /// <summary>
         /// Downloads a file from a URL to a local destination.
-        /// Optionally verifies the file hash (SHA256) if provided.
         /// </summary>
         /// <param name="url">The URL to download from.</param>
         /// <param name="destinationPath">The local path to save the file.</param>
-        /// <param name="expectedHash">The expected SHA256 hash (optional).</param>
+        /// <param name="expectedHash">Unused - Thunderstore API v1 does not provide file hashes.</param>
         /// <param name="onComplete">Callback invoked with success status and error message (if any).</param>
         public static IEnumerator DownloadFile(string url, string destinationPath, string expectedHash, Action<bool, string> onComplete)
         {
@@ -46,32 +45,13 @@ namespace Rooster
                     try
                     {
                         byte[] data = www.downloadHandler.data;
-                        
-                        if (!string.IsNullOrEmpty(expectedHash))
-                        {
-                            using (var sha256 = System.Security.Cryptography.SHA256.Create())
-                            {
-                                byte[] hashBytes = sha256.ComputeHash(data);
-                                string actualHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
-                                
-                                if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    string error = $"Hash mismatch! Expected: {expectedHash}, Actual: {actualHash}";
-                                    RoosterPlugin.LogError(error);
-                                    onComplete?.Invoke(false, error);
-                                    yield break;
-                                }
-                                RoosterPlugin.LogInfo("Hash verification passed.");
-                            }
-                        }
-
                         File.WriteAllBytes(destinationPath, data);
-                        RoosterPlugin.LogInfo("Download complete and verified.");
+                        RoosterPlugin.LogInfo("Download complete.");
                         onComplete?.Invoke(true, null);
                     }
                     catch (Exception ex)
                     {
-                        RoosterPlugin.LogError($"Failed to save or verify file: {ex}");
+                        RoosterPlugin.LogError($"Failed to save file: {ex}");
                         onComplete?.Invoke(false, ex.Message);
                     }
                 }

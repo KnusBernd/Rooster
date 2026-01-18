@@ -118,7 +118,7 @@ namespace Rooster.Services
                 // Extract version details
                 string verNum = ExtractJsonValue(firstVerObj, "version_number");
                 string dlUrl = ExtractJsonValue(firstVerObj, "download_url");
-                string fileHash = ExtractJsonValue(firstVerObj, "file_hash") ?? ExtractJsonValue(firstVerObj, "checksum");
+                // NOTE: Thunderstore API v1 does not provide file hashes. Hash verification is not currently possible.
                 
                 // Extract package metadata
                 string packageMeta = json.Substring(pkgStart, versionsKeyIdx - pkgStart);
@@ -134,7 +134,7 @@ namespace Rooster.Services
                         {
                             version_number = verNum,
                             download_url = dlUrl ?? "",
-                            file_hash = fileHash ?? ""
+                            file_hash = "" // Thunderstore API v1 does not provide hashes
                         }
                     });
                 }
