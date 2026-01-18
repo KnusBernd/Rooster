@@ -56,11 +56,8 @@ namespace Rooster
 
                 RoosterConfig.RegisterMod(guid, modName);
 
-                if (RoosterConfig.IsModIgnored(guid))
-                {
-                    RoosterPlugin.LogInfo($"Skipping ignored mod: {modName}");
-                    continue;
-                }
+                // Removed early continue so matchedPkg and green star still populate
+                // if (RoosterConfig.IsModIgnored(guid)) { ... continue; }
 
                 ThunderstorePackage matchedPkg = ModMatcher.FindPackage(plugin, CachedPackages);
 
@@ -72,7 +69,12 @@ namespace Rooster
                     var updateInfo = VersionComparer.CheckForUpdate(plugin, matchedPkg);
                     if (updateInfo != null)
                     {
-                        if (RoosterConfig.IsModAutoUpdate(guid))
+                        if (RoosterConfig.IsModIgnored(guid))
+                        {
+                            RoosterPlugin.LogInfo($"Skipping update for ignored mod: {modName}");
+                            // Do not add to autoUpdates or manualUpdates
+                        }
+                        else if (RoosterConfig.IsModAutoUpdate(guid))
                         {
                             RoosterPlugin.LogInfo($"Auto-Update triggered for {modName}");
                             autoUpdates.Add(updateInfo);
