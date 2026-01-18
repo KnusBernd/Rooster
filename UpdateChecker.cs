@@ -2,294 +2,232 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Collections.Concurrent;
 using BepInEx;
 using BepInEx.Bootstrap;
 using UnityEngine;
-using UnityEngine.Networking;
+using System.Linq;
+using Rooster.Models;
+using Rooster.Services;
 
-namespace ThunderstoreUpdateChecker
+namespace Rooster
 {
+    /// <summary>
+    /// Orchestrates the update check process.
+    /// Manages the full lifecycle of fetching packages, matching them to installed plugins,
+    /// and identifying available updates.
+    /// </summary>
     public class UpdateChecker
     {
         public static List<string> UpdatesAvailable = new List<string>();
         public static bool CheckComplete = false;
+        public static List<ThunderstorePackage> CachedPackages = new List<ThunderstorePackage>();
+        public static Dictionary<string, ThunderstorePackage> MatchedPackages = new Dictionary<string, ThunderstorePackage>(StringComparer.OrdinalIgnoreCase);
+        public static bool RestartRequired = false;
+        public static bool IsAutoUpdating = false;
+        public static string AutoUpdateStatus = "";
+        public static List<ModUpdateInfo> PendingUpdates = new List<ModUpdateInfo>();
 
-        private const string THUNDERSTORE_API_URL = "https://thunderstore.io/api/experimental/package/";
-
+        /// <summary>
+        /// Coroutine that runs the update check process.
+        /// Fetches packages from Thunderstore, matches them with local plugins, and identifies updates.
+        /// </summary>
         public static IEnumerator CheckForUpdates()
         {
-            // Delay to ensure UnityWebRequest system is ready and game is initialized
             yield return new WaitForSecondsRealtime(2.0f);
 
-            ThunderstoreUpdateCheckerPlugin.LogInfo("Starting Update Check...");
-            List<Tuple<BepInEx.PluginInfo, ModMapItem>> contentToCheck = new List<Tuple<BepInEx.PluginInfo, ModMapItem>>();
-
-            try 
-            {
-                // ... (Load ModMap logic is fine) ...
-                UpdatesAvailable.Clear();
-                CheckComplete = false;
-
-                // 1. Load Mod Map
-                string dllPath = Path.GetDirectoryName(typeof(ThunderstoreUpdateCheckerPlugin).Assembly.Location);
-                string mapPath = Path.Combine(dllPath, "ModMap.json");
-                ThunderstoreUpdateCheckerPlugin.LogInfo($"Looking for ModMap at: {mapPath}");
-
-                ModMapData modMap = null;
-                if (File.Exists(mapPath)) 
-                {
-                    try 
-                    {
-                        string json = File.ReadAllText(mapPath);
-                        ThunderstoreUpdateCheckerPlugin.LogInfo($"ModMap JSON: {json}");
-                        
-                        // Try JsonUtility first
-                        try {
-                            modMap = JsonUtility.FromJson<ModMapData>(json);
-                        } catch { }
-
-                        // Fallback to manual parsing if JsonUtility failed or returned null mods
-                        if (modMap == null || modMap.mods == null || modMap.mods.Length == 0)
-                        {
-                            ThunderstoreUpdateCheckerPlugin.LogInfo("JsonUtility failed. Attempting manual parsing...");
-                            modMap = ManualParseModMap(json);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ThunderstoreUpdateCheckerPlugin.LogError($"Failed to load ModMap.json: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    ThunderstoreUpdateCheckerPlugin.LogWarning($"ModMap.json not found at {mapPath}. Creating default.");
-                    modMap = new ModMapData();
-                    modMap.mods = new ModMapItem[]
-                    {
-                        new ModMapItem { guid = "BuildingPlus", thunderstore_namespace = "Daniel", thunderstore_name = "BuildingPlus" }
-                    };
-                    try 
-                    {
-                       File.WriteAllText(mapPath, JsonUtility.ToJson(modMap, true));
-                    } catch { }
-                }
-
-                if (modMap == null)
-                {
-                    ThunderstoreUpdateCheckerPlugin.LogWarning("ModMap object is null.");
-                    CheckComplete = true; // Still marked complete so popup knows we are done (even if failed)
-                }
-                else if (modMap.mods == null)
-                {
-                     ThunderstoreUpdateCheckerPlugin.LogWarning("ModMap.mods is null (Deserialization failed).");
-                     // Do not set CheckComplete here, allowing scan to run for debug purposes
-                }
-                else
-                {
-                    ThunderstoreUpdateCheckerPlugin.LogInfo($"ModMap loaded with {modMap.mods.Length} entries.");
-                }
-
-                // 2. Scan Installed Plugins (Running always for debug)
-                ThunderstoreUpdateCheckerPlugin.LogInfo($"Scanning {Chainloader.PluginInfos.Count} plugins...");
-                foreach (var plugin in Chainloader.PluginInfos.Values)
-                {
-                    string guid = plugin.Metadata.GUID;
-                    string currentVersion = plugin.Metadata.Version.ToString();
-                    
-                    // Debug log to see installed plugins
-                    ThunderstoreUpdateCheckerPlugin.LogInfo($"Installed Plugin: GUID='{guid}', Ver='{currentVersion}'");
-
-                    if (modMap != null && modMap.mods != null)
-                    {
-                        // Use simple loop to avoid LINQ issues if any
-                        ModMapItem mapItem = null;
-                        foreach(var item in modMap.mods)
-                        {
-                            if(item.guid == guid) { mapItem = item; break; }
-                        }
-
-                        if (mapItem != null)
-                        {
-                            contentToCheck.Add(new Tuple<BepInEx.PluginInfo, ModMapItem>(plugin, mapItem));
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                ThunderstoreUpdateCheckerPlugin.LogError($"Update Check Setup Error: {ex}");
-            }
-
-            // Execute checks
-            ThunderstoreUpdateCheckerPlugin.LogInfo($"Found {contentToCheck.Count} plugins to check.");
+            RoosterPlugin.LogInfo("Starting Update Check (Auto-Discovery)...");
             
-            // Loop cannot be comfortably wrapped in try-catch with yield return inside due to C# iterator constraints in some versions
-            // but in recent C# it is fine.
-            // Safe approach: Log errors inside the loop logic (which is in CheckSingleMod).
-            // But if `CheckSingleMod` start throws?
             
-            foreach(var item in contentToCheck)
+            yield return ThunderstoreApi.FetchAllPackages((packages) => {
+                CachedPackages = packages;
+            });
+
+            if (CachedPackages.Count == 0)
             {
-                var plugin = item.Item1;
-                var mapItem = item.Item2;
-                ThunderstoreUpdateCheckerPlugin.LogInfo($"Checking update for {mapItem.thunderstore_name}...");
-                yield return CheckSingleMod(plugin.Metadata.Name, plugin.Metadata.Version.ToString(), mapItem.thunderstore_namespace, mapItem.thunderstore_name);
+                RoosterPlugin.LogError("Failed to fetch packages from Thunderstore. Aborting check.");
+                CheckComplete = true;
+                yield break;
             }
+
+            
+            ConcurrentDictionary<string, ThunderstorePackage> packageMap = new ConcurrentDictionary<string, ThunderstorePackage>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pkg in CachedPackages)
+            {
+                if (!packageMap.ContainsKey(pkg.name))
+                {
+                    packageMap[pkg.name] = pkg;
+                }
+            }
+            
+            UpdatesAvailable.Clear();
+            PendingUpdates.Clear();
+            MatchedPackages.Clear();
+            CheckComplete = false;
+
+            RoosterPlugin.LogInfo($"Scanning {Chainloader.PluginInfos.Count} plugins against {packageMap.Count} online packages...");
+            
+            UpdatesAvailable.Clear();
+            PendingUpdates.Clear();
+            MatchedPackages.Clear();
+            CheckComplete = false;
+
+            RoosterPlugin.LogInfo($"Scanning {Chainloader.PluginInfos.Count} plugins against {packageMap.Count} online packages...");
+            
+            List<ModUpdateInfo> manualUpdates = new List<ModUpdateInfo>();
+            List<ModUpdateInfo> autoUpdates = new List<ModUpdateInfo>();
+
+            // Iterate installed plugins
+            foreach (var plugin in Chainloader.PluginInfos.Values)
+            {
+                string modName = plugin.Metadata.Name;
+                string guid = plugin.Metadata.GUID;
+
+                if (RoosterConfig.IsModIgnored(guid))
+                {
+                    RoosterPlugin.LogInfo($"Skipping ignored mod: {modName}");
+                    continue;
+                }
+
+                RoosterConfig.RegisterMod(guid, modName);
+                
+                
+                ThunderstorePackage matchedPkg = ModMatcher.FindPackage(plugin, CachedPackages);
+
+                if (matchedPkg != null)
+                {
+                    RoosterPlugin.LogInfo($"Matched {modName} -> {matchedPkg.full_name}");
+                    MatchedPackages[guid] = matchedPkg;
+
+                    var updateInfo = VersionComparer.CheckForUpdate(plugin, matchedPkg);
+                    if (updateInfo != null)
+                    {
+                        // Check auto-update configuration
+                        if (RoosterConfig.IsDataAutoUpdate(guid, matchedPkg.full_name))
+                        {
+                            RoosterPlugin.LogInfo($"Auto-Update triggered for {modName}");
+                            autoUpdates.Add(updateInfo);
+                        }
+                        else
+                        {
+                            manualUpdates.Add(updateInfo);
+                        }
+                    }
+                }
+            }
+
+            
+            // Execute pending auto-updates
+            if (autoUpdates.Count > 0)
+            {
+                RoosterPlugin.LogInfo($"Processing {autoUpdates.Count} auto-updates...");
+                PendingUpdates.AddRange(autoUpdates);
+                
+                IsAutoUpdating = true;
+                RoosterPlugin.Instance.StartCoroutine(UpdateAllCoroutine(autoUpdates, (status) => {}, () => {
+                    IsAutoUpdating = false;
+                    RestartRequired = true;
+                    RoosterPlugin.LogInfo("Auto-Updates complete.");
+                    Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
+                }));
+            }
+
+            // Track manual updates for UI
+            PendingUpdates = manualUpdates;
+            UpdatesAvailable = manualUpdates.Select(u => $"{u.ModName}: v{u.PluginInfo.Metadata.Version} -> v{u.Version}").ToList();
 
             CheckComplete = true;
-            ThunderstoreUpdateCheckerPlugin.LogInfo($"Update Check Complete. Found {UpdatesAvailable.Count} updates.");
+            RoosterPlugin.LogInfo($"Update Check Complete. Found {manualUpdates.Count} manual updates and {autoUpdates.Count} auto updates.");
         }
 
-        private static IEnumerator CheckSingleMod(string modName, string currentVersion, string ns, string name)
+        
+        
+        
+        /// <summary>
+        /// Finds the matching Thunderstore package for a given local plugin.
+        /// </summary>
+        /// <param name="plugin">The local plugin info.</param>
+        /// <returns>The matching ThunderstorePackage, or null if not found.</returns>
+        public static ThunderstorePackage FindPackage(PluginInfo plugin)
         {
-            string url = $"{THUNDERSTORE_API_URL}{ns}/{name}/";
-            using (UnityWebRequest www = UnityWebRequest.Get(url))
-            {
-                yield return www.SendWebRequest();
-
-                if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
-                {
-                    ThunderstoreUpdateCheckerPlugin.LogError($"Update check failed for {modName}: {www.error}");
-                }
-                else
-                {
-                    try
-                    {
-                        string json = www.downloadHandler.text;
-                        ThunderstorePackage package = JsonUtility.FromJson<ThunderstorePackage>(json);
-                        string latestVersion = null;
-
-                        if (package != null && package.latest != null)
-                        {
-                            latestVersion = package.latest.version_number;
-                        }
-                        else
-                        {
-                            ThunderstoreUpdateCheckerPlugin.LogWarning($"[CheckSingleMod] JsonUtility failed to parse 'latest' for {modName}. Trying manual.");
-                            // Simple manual extraction for "latest" block's "version_number"
-                            // Assumes "latest" block contains "version_number"
-                            // We scan for "latest" then "version_number" in proximity? 
-                            // Dangerous because of "versions" list.
-                            
-                            // Better: regex for "latest" followed by content containing version_number
-                            // "latest":\s*\{[^}]*"version_number":\s*"([^"]+)"
-                            var match = System.Text.RegularExpressions.Regex.Match(json, "\"latest\"\\s*:\\s*\\{[^}]*\"version_number\"\\s*:\\s*\"([^\"]+)\"");
-                            if (match.Success)
-                            {
-                                latestVersion = match.Groups[1].Value;
-                                ThunderstoreUpdateCheckerPlugin.LogInfo($"[CheckSingleMod] Manual parse found version: {latestVersion}");
-                            }
-                        }
-
-                        if (!string.IsNullOrEmpty(latestVersion))
-                        {
-                            if (CompareVersions(currentVersion, latestVersion))
-                            {
-                                UpdatesAvailable.Add($"{modName}: v{currentVersion} -> v{latestVersion}");
-                                ThunderstoreUpdateCheckerPlugin.LogInfo($"Update found for {modName}: {latestVersion}");
-                            }
-                            else
-                            {
-                                ThunderstoreUpdateCheckerPlugin.LogInfo($"{modName} is up to date (Latest: {latestVersion}).");
-                            }
-                        }
-                        else
-                        {
-                             ThunderstoreUpdateCheckerPlugin.LogError($"Could not determine latest version for {modName} (Parsing failed).");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ThunderstoreUpdateCheckerPlugin.LogError($"Failed to parse response for {modName}: {ex}");
-                    }
-                }
-            }
+            return ModMatcher.FindPackage(plugin, CachedPackages);
         }
 
-        private static bool CompareVersions(string current, string latest)
+        
+        
+        
+        /// <summary>
+        /// Initiates the mass update process for all pending updates.
+        /// </summary>
+        /// <param name="onStatusUpdate">Callback for status messages (e.g., "Downloading...").</param>
+        /// <param name="onComplete">Callback invoked when all updates are processed.</param>
+        public static void UpdateAll(Action<string> onStatusUpdate, Action onComplete)
         {
-            try
-            {
-                Version vCurrent = new Version(current);
-                Version vLatest = new Version(latest);
-                return vLatest > vCurrent;
-            }
-            catch
-            {
-                return string.Compare(latest, current) > 0;
-            }
+            RoosterPlugin.Instance.StartCoroutine(UpdateAllCoroutine(PendingUpdates, onStatusUpdate, onComplete));
         }
 
-        private static ModMapData ManualParseModMap(string json)
+        private static IEnumerator UpdateAllCoroutine(List<ModUpdateInfo> updates, Action<string> onStatusUpdate, Action onComplete)
         {
-            var data = new ModMapData();
-            var list = new List<ModMapItem>();
-
-            // 1. Remove outer wrapper to get array content
-            int firstBracket = json.IndexOf('[');
-            int lastBracket = json.LastIndexOf(']');
-            if (firstBracket < 0 || lastBracket < 0) return data;
-
-            string content = json.Substring(firstBracket + 1, lastBracket - firstBracket - 1);
+            RoosterPlugin.LogInfo($"Starting Mass Update for {updates.Count} mods.");
             
-            // 2. Split by objects. A simple split by "}," works for flat objects.
-            string[] rawItems = content.Split(new string[] { "}," }, StringSplitOptions.None);
-
-            foreach (string rawItem in rawItems)
+            foreach (var update in updates)
             {
-                var item = new ModMapItem();
-                item.guid = ExtractJsonValue(rawItem, "guid");
-                item.thunderstore_namespace = ExtractJsonValue(rawItem, "thunderstore_namespace");
-                item.thunderstore_name = ExtractJsonValue(rawItem, "thunderstore_name");
-
-                if (!string.IsNullOrEmpty(item.guid))
+                if (string.IsNullOrEmpty(update.DownloadUrl))
                 {
-                    list.Add(item);
+                    string msg = $"Skipping {update.ModName} (No URL)";
+                    RoosterPlugin.LogWarning(msg);
+                    onStatusUpdate?.Invoke(msg);
+                    AutoUpdateStatus = msg;
+                    continue;
+                }
+
+                RoosterPlugin.LogInfo($"Processing update for {update.ModName}...");
+                string statusMsg = $"Downloading {update.ModName}...";
+                onStatusUpdate?.Invoke(statusMsg);
+                AutoUpdateStatus = statusMsg;
+
+                string cacheDir = Path.Combine(Path.GetDirectoryName(typeof(RoosterPlugin).Assembly.Location), "cache");
+                string zipPath = Path.Combine(cacheDir, $"{update.ModName}_{update.Version}.zip");
+
+                bool downloadSuccess = false;
+                yield return UpdateDownloader.DownloadFile(update.DownloadUrl, zipPath, update.FileHash, (success, error) => 
+                {
+                    downloadSuccess = success;
+                    if (!success) 
+                    {
+                        onStatusUpdate?.Invoke($"Download failed for {update.ModName}: {error}");
+                    }
+                });
+
+                if (downloadSuccess)
+                {
+                    onStatusUpdate?.Invoke($"Installing {update.ModName}...");
+                    bool installSuccess = false;
+                    UpdateInstaller.InstallMod(zipPath, update.PluginInfo, (success, error) =>
+                    {
+                        installSuccess = success;
+                        if (!success)
+                        {
+                            onStatusUpdate?.Invoke($"Install failed for {update.ModName}: {error}");
+                        }
+                    });
+
+                    if (installSuccess)
+                    {
+                        onStatusUpdate?.Invoke($"Updated {update.ModName}!");
+                    }
                 }
             }
+
+            onStatusUpdate?.Invoke("All updates processed. Restart required.");
             
-            data.mods = list.ToArray();
-            return data;
+            // Flag restart required
+            RestartRequired = true;
+            UpdatesAvailable.Clear();
+            PendingUpdates.Clear();
+            
+            yield return null; 
+            onComplete?.Invoke();
         }
-
-        private static string ExtractJsonValue(string source, string key)
-        {
-            // Matches "key": "value"
-            string pattern = $"\"{key}\"\\s*:\\s*\"([^\"]+)\"";
-            var match = System.Text.RegularExpressions.Regex.Match(source, pattern);
-            if (match.Success)
-            {
-                return match.Groups[1].Value;
-            }
-            return null;
-        }
-    }
-
-    [Serializable]
-    public class ModMapData
-    {
-        public ModMapItem[] mods;
-    }
-
-    [Serializable]
-    public class ModMapItem
-    {
-        public string guid;
-        public string thunderstore_namespace;
-        public string thunderstore_name;
-    }
-
-    [Serializable]
-    public class ThunderstorePackage
-    {
-        public string name;
-        public string full_name;
-        public ThunderstoreVersion latest;
-    }
-
-    [Serializable]
-    public class ThunderstoreVersion
-    {
-        public string version_number;
     }
 }

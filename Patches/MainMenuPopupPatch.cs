@@ -1,12 +1,29 @@
 using HarmonyLib;
-using UnityEngine;
-using System.Linq;
+using Rooster.UI;
 
-namespace ThunderstoreUpdateChecker.Patches
+namespace Rooster.Patches
 {
+    /// <summary>
+    /// Intercepts main menu controller events to manage the custom popup queue.
+    /// Hijacks the tablet modal system to display Rooster's mod menu and notifications.
+    /// </summary>
     [HarmonyPatch(typeof(MainMenuControl), "JoinControllerToMainMenu")]
     public static class MainMenuPopupPatch
     {
+        /// <summary>
+        /// Enum representing the current state of the hijacked menu/modal.
+        /// </summary>
+        public enum MenuState { None, ModMenu, ModSettings, UpdateMenu, BetaWarning, RestartRequired }
+        
+        /// <summary>
+        /// The current active state of the custom menu system.
+        /// </summary>
+        public static MenuState CurrentMenuState = MenuState.None;
+
+        /// <summary>
+        /// Applies patches to MainMenuControl and TabletModalOverlay.
+        /// </summary>
+        /// <param name="harmony">The Harmony instance.</param>
         public static void ApplyPatch(Harmony harmony)
         {
             var method = AccessTools.Method(typeof(MainMenuControl), "JoinControllerToMainMenu");
@@ -17,53 +34,71 @@ namespace ThunderstoreUpdateChecker.Patches
             }
             else
             {
-                ThunderstoreUpdateCheckerPlugin.LogError("Failed to find MainMenuControl.JoinControllerToMainMenu");
+                RoosterPlugin.LogError("Failed to find MainMenuControl.JoinControllerToMainMenu");
+            }
+
+            var choiceMethod = AccessTools.Method(typeof(TabletModalOverlay), "OnSelectChoice");
+            if (choiceMethod != null)
+            {
+                var choicePrefix = AccessTools.Method(typeof(MainMenuPopupPatch), nameof(OnSelectChoicePrefix));
+                harmony.Patch(choiceMethod, prefix: new HarmonyMethod(choicePrefix));
+            }
+
+            var closeMethod = AccessTools.Method(typeof(TabletModalOverlay), "Close");
+            if (closeMethod != null)
+            {
+                var closePrefix = AccessTools.Method(typeof(MainMenuPopupPatch), nameof(OnClosePrefix));
+                harmony.Patch(closeMethod, prefix: new HarmonyMethod(closePrefix));
             }
         }
 
-        private static bool shownThisSession = false;
-
+        /// <summary>
+        /// Triggers the popup queue check when the controller joins the main menu.
+        /// </summary>
         [HarmonyPostfix]
         public static void Postfix()
         {
-            if (shownThisSession) return;
-            if (UpdateChecker.UpdatesAvailable.Count == 0) return;
+            PopupController.ShowNextPopup();
+        }
 
-            if (Tablet.clickEventReceiver != null && Tablet.clickEventReceiver.modalOverlay != null)
+        /// <summary>
+        /// Helper to trigger the next popup in the queue if conditions are met.
+        /// </summary>
+        public static void ShowPopupIfNeeded()
+        {
+            PopupController.ShowNextPopup();
+        }
+
+        /// <summary>
+        /// Prefix patch for TabletModalOverlay.OnSelectChoice.
+        /// Redirects button clicks to PopupController when a custom menu is active.
+        /// </summary>
+        public static bool OnSelectChoicePrefix(TabletModalOverlay __instance, int idx)
+        {
+            return PopupController.HandleChoice(__instance, idx);
+        }
+
+        /// <summary>
+        /// Prefix patch for TabletModalOverlay.Close.
+        /// Intercepts close events to handle back navigation in custom menus (e.g., Settings -> Mod List).
+        /// </summary>
+        public static bool OnClosePrefix()
+        {
+            
+            if (CurrentMenuState == MenuState.ModSettings)
             {
-                var modal = Tablet.clickEventReceiver.modalOverlay;
-                
-                string title = "Mod Updates Available";
-                string message = string.Join("\n", UpdateChecker.UpdatesAvailable.Take(5).ToArray());
-                if (UpdateChecker.UpdatesAvailable.Count > 5) message += "\nAnd more...";
-
-                // Show default message (Automatically uses OK button and closes on click)
-                modal.ShowSimpleMessage(title, message, null);
-
-                // Adjust Layout
-                var textRect = modal.simpleMessageContainer;
-                // Use OK button container instead of OnOff container
-                var buttonRect = modal.okButtonContainer.GetComponent<RectTransform>();
-
-                if (textRect != null && buttonRect != null)
-                {
-                    textRect.anchorMin = new Vector2(0.5f, 0.5f);
-                    textRect.anchorMax = new Vector2(0.5f, 0.5f);
-                    textRect.pivot = new Vector2(0.5f, 0.5f);
-
-                    buttonRect.anchorMin = new Vector2(0.5f, 0.5f);
-                    buttonRect.anchorMax = new Vector2(0.5f, 0.5f);
-                    buttonRect.pivot = new Vector2(0.5f, 0.5f);
-
-                    textRect.SetSiblingIndex(1);
-                    buttonRect.SetAsLastSibling();
-
-                    textRect.anchoredPosition = new UnityEngine.Vector2(0f, 80f);
-                    buttonRect.anchoredPosition = new UnityEngine.Vector2(0f, -140f);
-                }
-
-                shownThisSession = true;
+                ModSettingsUI.CleanupCustomUI();
+                CurrentMenuState = MenuState.ModMenu;
+                ModMenuUI.ShowModMenu();
+                return false;
             }
+
+            
+            ModMenuUI.ScheduleCleanup();
+            ModSettingsUI.CleanupCustomUI();
+            UpdateMenuUI.DestroyUI();
+            CurrentMenuState = MenuState.None;
+            return true;
         }
     }
 }

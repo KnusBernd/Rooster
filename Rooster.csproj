@@ -9,8 +9,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{4A292850-2E24-4B7C-8212-D07E59D65E87}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>ThunderstoreUpdateChecker</RootNamespace>
-    <AssemblyName>ThunderstoreUpdateChecker</AssemblyName>
+    <RootNamespace>Rooster</RootNamespace>
+    <AssemblyName>Rooster</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -52,6 +52,7 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
+    <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Xml" />
     <Reference Include="UnityEngine">
       <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.dll</HintPath>
@@ -62,6 +63,9 @@
     <Reference Include="UnityEngine.UI">
       <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.UI.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.IMGUIModule">
       <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
     </Reference>
@@ -71,15 +75,38 @@
     <Reference Include="UnityEngine.JSONSerializeModule">
         <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.JSONSerializeModule.dll</HintPath>
       </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Plugin.cs" />
+    <Compile Include="RoosterConfig.cs" />
     <Compile Include="UpdateChecker.cs" />
+    <Compile Include="UpdateDownloader.cs" />
+    <Compile Include="UpdateInstaller.cs" />
+    <Compile Include="ModMenuUI.cs" />
+    <Compile Include="ModSettingsUI.cs" />
+    <Compile Include="UpdateMenuUI.cs" />
     <Compile Include="Patches\MainMenuPopupPatch.cs" />
+    <Compile Include="Patches\MainMenuButtonPatch.cs" />
+    <Compile Include="Patches\PickCursorScrollPatch.cs" />
+    <Compile Include="Models\ThunderstorePackage.cs" />
+    <Compile Include="Models\ThunderstoreVersion.cs" />
+    <Compile Include="Models\ModUpdateInfo.cs" />
+    <Compile Include="Models\ModMapData.cs" />
+    <Compile Include="Models\PackageListWrapper.cs" />
+    <Compile Include="Services\ThunderstoreApi.cs" />
+    <Compile Include="Services\ModMatcher.cs" />
+    <Compile Include="Services\VersionComparer.cs" />
+    <Compile Include="UI\UIHelpers.cs" />
+    <Compile Include="UI\PopupController.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="copy /Y &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(GameDir)\BepInEx\plugins\$(TargetName).dll&quot;" IgnoreExitCode="true" />
+    <Exec Command="if not exist &quot;$(GameDir)\BepInEx\plugins\Rooster&quot; mkdir &quot;$(GameDir)\BepInEx\plugins\Rooster&quot;" />
+    <Exec Command="copy /Y &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(GameDir)\BepInEx\plugins\$(TargetName).dll&quot;" />
+
   </Target>
 </Project>
