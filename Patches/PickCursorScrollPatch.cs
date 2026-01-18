@@ -18,10 +18,6 @@ namespace Rooster.Patches
         private static float captureStartCursorY;
         private static float captureStartCursorX;
 
-        /// <summary>
-        /// Intercepts input events to handle scrolling logic.
-        /// Supports both analog stick scrolling and mouse drag scrolling.
-        /// </summary>
         [HarmonyPatch("ReceiveEvent")]
         [HarmonyPrefix]
         public static bool ReceiveEventPrefix(PickCursor __instance, InputEvent e)
@@ -39,7 +35,6 @@ namespace Rooster.Patches
                          
                          if (scrollRect.vertical)
                          {
-                             // Adjust vertical normalized position
                              scrollRect.verticalNormalizedPosition += direction * sensitivity * e.Valuef;
                              scrollRect.verticalNormalizedPosition = Mathf.Clamp01(scrollRect.verticalNormalizedPosition);
                          }
@@ -74,7 +69,6 @@ namespace Rooster.Patches
                     var sb = result.gameObject.GetComponentInParent<Scrollbar>();
                     if (sb != null && sb.interactable)
                     {
-                        // Capture scrollbar and initial state
                         capturedScrollbar = sb;
                         captureStartValue = sb.value;
                         if (__instance.cursorPoint != null)
@@ -98,9 +92,6 @@ namespace Rooster.Patches
             return true;
         }
 
-        /// <summary>
-        /// Helper to find the ScrollRect currently hovered by the cursor.
-        /// </summary>
         private static ScrollRect GetHoveredScrollRect(PickCursor cursor)
         {
              PointerEventData ped = new PointerEventData(EventSystem.current);
@@ -124,10 +115,6 @@ namespace Rooster.Patches
              return null;
         }
 
-        /// <summary>
-        /// Updates the captured scrollbar position based on cursor movement during a drag operation.
-        /// Includes "elastic" behavior when dragging outside the scrollbar bounds.
-        /// </summary>
         [HarmonyPatch("FixedUpdate")]
         [HarmonyPostfix]
         public static void FixedUpdatePostfix(PickCursor __instance)
@@ -194,14 +181,12 @@ namespace Rooster.Patches
                  float usableWidth = trackWidth - handleWidth;
                  if (usableWidth < 0.001f) usableWidth = trackWidth * 0.1f;
 
-                 // Calculate new scroll value
                  float normalizedDelta = worldDeltaX / usableWidth;
-                 
                  float sign = (capturedScrollbar.direction == Scrollbar.Direction.RightToLeft) ? -1f : 1f;
 
                  float val = captureStartValue + (normalizedDelta * sign);
 
-                 // Apply elastic drag effect when out of bounds
+                 // Elastic drag at bounds
                  if (val > 1.0f)
                  {
                      float excess = val - 1.0f;

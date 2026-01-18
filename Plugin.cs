@@ -12,9 +12,6 @@ namespace Rooster
         internal static RoosterPlugin Instance { get; private set; }
         internal static ManualLogSource LoggerInstance => Instance.Logger;
 
-        /// <summary>
-        /// Initializes the plugin, loads configuration, and applies Harmony patches.
-        /// </summary>
         private void Awake()
         {
             Instance = this;
@@ -35,9 +32,6 @@ namespace Rooster
             StartCoroutine(UpdateChecker.CheckForUpdates());
         }
 
-        /// <summary>
-        /// Renders debug UI when an auto-update is in progress.
-        /// </summary>
         private void OnGUI()
         {
             if (UpdateChecker.IsAutoUpdating && !string.IsNullOrEmpty(UpdateChecker.AutoUpdateStatus))

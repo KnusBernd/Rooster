@@ -9,19 +9,8 @@ namespace Rooster.Models
     [Serializable]
     public class ThunderstorePackage
     {
-        /// <summary>
-        /// The package name (e.g., "Rooster").
-        /// </summary>
         public string name;
-        
-        /// <summary>
-        /// The full package name including namespace (e.g., "knusbernd-Rooster").
-        /// </summary>
         public string full_name;
-        
-        /// <summary>
-        /// Information about the latest available version.
-        /// </summary>
         public ThunderstoreVersion latest;
     }
 }

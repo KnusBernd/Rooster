@@ -11,11 +11,6 @@ using Rooster.Services;
 
 namespace Rooster
 {
-    /// <summary>
-    /// Orchestrates the update check process.
-    /// Manages the full lifecycle of fetching packages, matching them to installed plugins,
-    /// and identifying available updates.
-    /// </summary>
     public class UpdateChecker
     {
         public static List<string> UpdatesAvailable = new List<string>();
@@ -55,7 +50,6 @@ namespace Rooster
             List<ModUpdateInfo> manualUpdates = new List<ModUpdateInfo>();
             List<ModUpdateInfo> autoUpdates = new List<ModUpdateInfo>();
 
-            // Iterate installed plugins
             foreach (var plugin in Chainloader.PluginInfos.Values)
             {
                 string modName = plugin.Metadata.Name;
@@ -79,7 +73,6 @@ namespace Rooster
                     var updateInfo = VersionComparer.CheckForUpdate(plugin, matchedPkg);
                     if (updateInfo != null)
                     {
-                        // Check auto-update configuration
                         if (RoosterConfig.IsDataAutoUpdate(guid))
                         {
                             RoosterPlugin.LogInfo($"Auto-Update triggered for {modName}");
@@ -93,7 +86,6 @@ namespace Rooster
                 }
             }
 
-            // Execute pending auto-updates
             if (autoUpdates.Count > 0)
             {
                 RoosterPlugin.LogInfo($"Processing {autoUpdates.Count} auto-updates...");
@@ -108,7 +100,6 @@ namespace Rooster
                 }));
             }
 
-            // Track manual updates for UI
             PendingUpdates = manualUpdates;
             UpdatesAvailable = manualUpdates.Select(u => $"{u.ModName}: v{u.PluginInfo.Metadata.Version} -> v{u.Version}").ToList();
 
@@ -183,7 +174,6 @@ namespace Rooster
 
             onStatusUpdate?.Invoke("All updates processed. Restart required.");
             
-            // Flag restart required
             RestartRequired = true;
             UpdatesAvailable.Clear();
             PendingUpdates.Clear();
