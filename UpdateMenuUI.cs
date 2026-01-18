@@ -37,33 +37,16 @@ namespace Rooster
             string title = $"{count} Update{(count == 1 ? "" : "s")} Available";
             modal.ShowSimpleMessage(title, fullText, null);
 
+            Patches.MainMenuPopupPatch.CurrentMenuState = Patches.MainMenuPopupPatch.MenuState.UpdateMenu;
+
             modal.okButtonContainer.gameObject.SetActive(false);
             modal.onOffContainer.gameObject.SetActive(true);
-
+            
             var onLabel = modal.onButton.GetComponentInChildren<TabletTextLabel>();
             if (onLabel != null) onLabel.text = "Update All"; 
             
-            modal.onButton.OnClick = new TabletButtonEvent();
-            modal.onButton.OnClick.AddListener((cursor) => {
-                 RoosterPlugin.LogInfo("Update All Clicked");
-                 UpdateChecker.UpdateAll(
-                    (status) => { }, 
-                    () => { 
-                        Patches.MainMenuPopupPatch.ShowPopupIfNeeded(); 
-                    }
-                 );
-                 DestroyUI();
-                 modal.Close();
-            });
-
             var offLabel = modal.offButton.GetComponentInChildren<TabletTextLabel>();
-            if (offLabel != null) offLabel.text = "Ignore"; 
-            
-            modal.offButton.OnClick = new TabletButtonEvent();
-            modal.offButton.OnClick.AddListener((cursor) => {
-                DestroyUI();
-                modal.Close();
-            });
+            if (offLabel != null) offLabel.text = "Ignore";
             
             try
             {

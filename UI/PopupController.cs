@@ -26,8 +26,7 @@ namespace Rooster.UI
                 return;
             }
 
-            if (!_updateShownThisSession && 
-                (UpdateChecker.UpdatesAvailable.Count > 0 || UpdateChecker.PendingUpdates.Count > 0))
+            if (!_updateShownThisSession && UpdateChecker.PendingUpdates.Count > 0)
             {
                 UpdateMenuUI.ShowUpdateMenu();
                 _updateShownThisSession = true;

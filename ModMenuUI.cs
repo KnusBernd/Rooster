@@ -225,7 +225,7 @@ namespace Rooster
                     {
                         RoosterPlugin.LogInfo($"Opening settings for: {plugin.Metadata.Name}");
                         
-                        var pkg = UpdateChecker.FindPackage(plugin);
+                        var pkg = Services.ModMatcher.FindPackage(plugin, UpdateChecker.CachedPackages);
                         string tsFullName = pkg?.full_name;
                         
                         ModSettingsUI.ShowModSettings(plugin, tsFullName);

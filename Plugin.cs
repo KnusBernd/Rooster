@@ -18,8 +18,8 @@ namespace Rooster
             RoosterConfig.Init(Config);
             
             var harmony = new Harmony("de.knusbernd.rooster");
-            MainMenuPopupPatch.ApplyPatch(harmony);
-            MainMenuButtonPatch.ApplyPatch(harmony);
+            harmony.PatchAll(typeof(MainMenuPopupPatch));
+            harmony.PatchAll(typeof(MainMenuButtonPatch));
             harmony.PatchAll(typeof(PickCursorScrollPatch));
             
             CleanupOldFiles();
@@ -32,13 +32,7 @@ namespace Rooster
             StartCoroutine(UpdateChecker.CheckForUpdates());
         }
 
-        private void OnGUI()
-        {
-            if (UpdateChecker.IsAutoUpdating && !string.IsNullOrEmpty(UpdateChecker.AutoUpdateStatus))
-            {
-                GUI.Box(new Rect(Screen.width - 320, 10, 300, 30), UpdateChecker.AutoUpdateStatus);
-            }
-        }
+
 
         private void CleanupOldFiles()
         {

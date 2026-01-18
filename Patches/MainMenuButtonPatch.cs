@@ -7,22 +7,10 @@ namespace Rooster.Patches
     /// Patches the main menu initialization to inject a "Mods" button.
     /// This button opens the custom Mod Menu UI.
     /// </summary>
+    [HarmonyPatch(typeof(TabletMainMenuHome), "Initialize")]
     public static class MainMenuButtonPatch
     {
-        public static void ApplyPatch(Harmony harmony)
-        {
-            var original = typeof(TabletMainMenuHome).GetMethod(nameof(TabletMainMenuHome.Initialize));
-            if (original != null)
-            {
-                var postfix = typeof(MainMenuButtonPatch).GetMethod(nameof(Postfix));
-                harmony.Patch(original, postfix: new HarmonyMethod(postfix));
-                RoosterPlugin.LogInfo("MainMenuButtonPatch applied to TabletMainMenuHome.Initialize");
-            }
-            else
-            {
-                RoosterPlugin.LogError("Failed to find TabletMainMenuHome.Initialize for button patch");
-            }
-        }
+
 
         [HarmonyPostfix]
         public static void Postfix()

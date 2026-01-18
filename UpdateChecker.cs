@@ -13,13 +13,12 @@ namespace Rooster
 {
     public class UpdateChecker
     {
-        public static List<string> UpdatesAvailable = new List<string>();
+
         public static bool CheckComplete = false;
         public static List<ThunderstorePackage> CachedPackages = new List<ThunderstorePackage>();
         public static Dictionary<string, ThunderstorePackage> MatchedPackages = new Dictionary<string, ThunderstorePackage>(StringComparer.OrdinalIgnoreCase);
         public static bool RestartRequired = false;
-        public static bool IsAutoUpdating = false;
-        public static string AutoUpdateStatus = "";
+
         public static List<ModUpdateInfo> PendingUpdates = new List<ModUpdateInfo>();
 
         /// <summary>Runs the update check process as a coroutine.</summary>
@@ -40,7 +39,7 @@ namespace Rooster
                 yield break;
             }
 
-            UpdatesAvailable.Clear();
+
             PendingUpdates.Clear();
             MatchedPackages.Clear();
             CheckComplete = false;
@@ -73,7 +72,7 @@ namespace Rooster
                     var updateInfo = VersionComparer.CheckForUpdate(plugin, matchedPkg);
                     if (updateInfo != null)
                     {
-                        if (RoosterConfig.IsDataAutoUpdate(guid))
+                        if (RoosterConfig.IsModAutoUpdate(guid))
                         {
                             RoosterPlugin.LogInfo($"Auto-Update triggered for {modName}");
                             autoUpdates.Add(updateInfo);
@@ -91,9 +90,9 @@ namespace Rooster
                 RoosterPlugin.LogInfo($"Processing {autoUpdates.Count} auto-updates...");
                 PendingUpdates.AddRange(autoUpdates);
                 
-                IsAutoUpdating = true;
+
                 RoosterPlugin.Instance.StartCoroutine(UpdateAllCoroutine(autoUpdates, (status) => {}, () => {
-                    IsAutoUpdating = false;
+
                     RestartRequired = true;
                     RoosterPlugin.LogInfo("Auto-Updates complete.");
                     Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
@@ -101,17 +100,13 @@ namespace Rooster
             }
 
             PendingUpdates = manualUpdates;
-            UpdatesAvailable = manualUpdates.Select(u => $"{u.ModName}: v{u.PluginInfo.Metadata.Version} -> v{u.Version}").ToList();
+
 
             CheckComplete = true;
             RoosterPlugin.LogInfo($"Update Check Complete. Found {manualUpdates.Count} manual updates and {autoUpdates.Count} auto updates.");
         }
 
-        /// <summary>Finds the matching Thunderstore package for a plugin.</summary>
-        public static ThunderstorePackage FindPackage(PluginInfo plugin)
-        {
-            return ModMatcher.FindPackage(plugin, CachedPackages);
-        }
+
 
         /// <summary>Initiates mass update for all pending updates.</summary>
         public static void UpdateAll(Action<string> onStatusUpdate, Action onComplete)
@@ -130,14 +125,14 @@ namespace Rooster
                     string msg = $"Skipping {update.ModName} (No URL)";
                     RoosterPlugin.LogWarning(msg);
                     onStatusUpdate?.Invoke(msg);
-                    AutoUpdateStatus = msg;
+
                     continue;
                 }
 
                 RoosterPlugin.LogInfo($"Processing update for {update.ModName}...");
                 string statusMsg = $"Downloading {update.ModName}...";
                 onStatusUpdate?.Invoke(statusMsg);
-                AutoUpdateStatus = statusMsg;
+
 
                 string cacheDir = Path.Combine(Path.GetDirectoryName(typeof(RoosterPlugin).Assembly.Location), "cache");
                 string zipPath = Path.Combine(cacheDir, $"{update.ModName}_{update.Version}.zip");
@@ -175,7 +170,7 @@ namespace Rooster
             onStatusUpdate?.Invoke("All updates processed. Restart required.");
             
             RestartRequired = true;
-            UpdatesAvailable.Clear();
+
             PendingUpdates.Clear();
             
             yield return null; 

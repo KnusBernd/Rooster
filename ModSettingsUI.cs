@@ -91,7 +91,7 @@ namespace Rooster
             layout.childForceExpandHeight = false;
 
             string guid = _currentPlugin.Metadata.GUID;
-            bool autoUpdateEnabled = RoosterConfig.IsDataAutoUpdate(guid);
+            bool autoUpdateEnabled = RoosterConfig.IsModAutoUpdate(guid);
             bool isIgnored = RoosterConfig.IsModIgnored(guid);
             bool isDiscovered = !string.IsNullOrEmpty(_thunderstoreFullName);
 

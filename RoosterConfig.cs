@@ -56,7 +56,7 @@ namespace Rooster
             if (_modIgnoreSettings.TryGetValue(guid, out var entry)) entry.Value = ignored;
         }
 
-        public static bool IsDataAutoUpdate(string guid)
+        public static bool IsModAutoUpdate(string guid)
         {
             return _modAutoUpdateSettings.TryGetValue(guid, out var entry) && entry.Value;
         }
