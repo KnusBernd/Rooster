@@ -29,7 +29,6 @@ namespace Rooster
                 ZipFile.ExtractToDirectory(zipPath, tempExtractPath);
                 
                 // Find Package Root
-                // Thunderstore packages must have a manifest.json at the root.
                 string packageRoot = Directory.GetFiles(tempExtractPath, "manifest.json", SearchOption.AllDirectories)
                                               .FirstOrDefault();
                 
@@ -39,12 +38,18 @@ namespace Rooster
                 }
 
                 packageRoot = Path.GetDirectoryName(packageRoot);
+                
+                // Handle BepInExPack: Special case where we strip 'BepInExPack' folder
+                string bepInExPackFolder = Path.Combine(packageRoot, "BepInExPack");
+                if (Directory.Exists(bepInExPackFolder))
+                {
+                    RoosterPlugin.LogInfo("Detected BepInExPack structure. Stripping 'BepInExPack' folder.");
+                    packageRoot = bepInExPackFolder;
+                }
+
                 RoosterPlugin.LogInfo($"Package Root identified at: {packageRoot}");
 
                 // Determine Installation Strategy
-                // Strategy: Root-based (BepInEx folder present) -> Merge into Game Root
-                // Strategy: BepInEx-root-based (plugins or config folder present) -> Merge into BepInEx Root
-                // Strategy: Plugin-based (Default) -> Copy to Plugin Directory
                 
                 string sourceBepInEx = Path.Combine(packageRoot, "BepInEx");
                 string sourcePlugins = Path.Combine(packageRoot, "plugins");
@@ -72,8 +77,13 @@ namespace Rooster
                     var rootDirs = Directory.GetDirectories(packageRoot);
                     if (rootDirs.Length == 1)
                     {
+                        // Check if the single folder inside is the one we want to install
                         string subDirName = Path.GetFileName(rootDirs[0]);
                         string targetDirName = Path.GetFileName(targetDirectory);
+                        
+                        // If we are updating "ModA" and the zip contains "ModA/Plugin.dll", we want "ModA" to match source.
+                        // However, standard zip extraction gives us "ModA" as root.
+                        // If the zip contains "ModA/ModA/Plugin.dll" (nested), we peel.
                         
                         if (string.Equals(subDirName, targetDirName, StringComparison.OrdinalIgnoreCase))
                         {
@@ -151,6 +161,99 @@ namespace Rooster
                         File.Delete(zipPath); 
                 } 
                 catch { /* Best effort cleanup */ }
+            }
+        }
+
+        /// <summary>Installs a new package (or update) given a mod name, handling fresh installs.</summary>
+        public static void InstallPackage(string zipPath, string modName, Action<bool, string> onComplete)
+        {
+            // Temporary extraction path
+            string tempExtractPath = Path.Combine(Path.GetDirectoryName(zipPath), "extracted_" + Path.GetFileNameWithoutExtension(zipPath));
+
+            try
+            {
+                RoosterPlugin.LogInfo($"Installing package {modName} from {zipPath}");
+
+                // Cleanup and Extract
+                if (Directory.Exists(tempExtractPath)) Directory.Delete(tempExtractPath, true);
+                Directory.CreateDirectory(tempExtractPath);
+
+                ZipFile.ExtractToDirectory(zipPath, tempExtractPath);
+                
+                // Find Package Root
+                string packageRoot = Directory.GetFiles(tempExtractPath, "manifest.json", SearchOption.AllDirectories)
+                                              .FirstOrDefault();
+                
+                if (string.IsNullOrEmpty(packageRoot)) throw new Exception("Invalid package: manifest.json not found.");
+                
+                packageRoot = Path.GetDirectoryName(packageRoot);
+                
+                // Handle BepInExPack: Special case where we strip 'BepInExPack' folder
+                string bepInExPackFolder = Path.Combine(packageRoot, "BepInExPack");
+                if (Directory.Exists(bepInExPackFolder))
+                {
+                     RoosterPlugin.LogInfo("Detected BepInExPack structure. Stripping 'BepInExPack' folder.");
+                     packageRoot = bepInExPackFolder;
+                }
+                
+                string sourceBepInEx = Path.Combine(packageRoot, "BepInEx");
+                string sourcePlugins = Path.Combine(packageRoot, "plugins");
+                string sourceConfig = Path.Combine(packageRoot, "config");
+                
+                string targetDirectory;
+                
+                if (Directory.Exists(sourceBepInEx))
+                {
+                    targetDirectory = Paths.GameRootPath;
+                }
+                else if (Directory.Exists(sourcePlugins) || Directory.Exists(sourceConfig))
+                {
+                    targetDirectory = Paths.BepInExRootPath;
+                }
+                else
+                {
+                    // Default to creating a new folder in plugins
+                    // OLD LOGIC: targetDirectory = Path.Combine(Paths.PluginPath, modName);
+                    
+                    // NEW LOGIC: Check if we should use the inner folder name
+                    var rootDirs = Directory.GetDirectories(packageRoot);
+                    var rootFiles = Directory.GetFiles(packageRoot);
+                    
+                    // Filter out metadata files from root files check
+                    string[] ignoredFiles = new[] { "manifest.json", "icon.png", "readme.md", "changelog.md", "manifest.yml" };
+                    bool hasLooseFiles = rootFiles.Any(f => !ignoredFiles.Contains(Path.GetFileName(f).ToLowerInvariant()));
+
+                    if (rootDirs.Length == 1 && !hasLooseFiles)
+                    {
+                        string subDirName = Path.GetFileName(rootDirs[0]);
+                        // If the zip is {ModName}/{Files}, we want to install {Files} into plugins/{ModName}
+                        // So we unwrap AND use the subdirectory name as the target folder
+                        RoosterPlugin.LogInfo($"Detected single inner folder '{subDirName}'. unwrapping and using as target folder name.");
+                        packageRoot = rootDirs[0];
+                        targetDirectory = Path.Combine(Paths.PluginPath, subDirName);
+                    }
+                    else
+                    {
+                        // Multiple folders or loose files -> Create a container folder using the package name
+                         targetDirectory = Path.Combine(Paths.PluginPath, modName);
+                    }
+                }
+
+                RoosterPlugin.LogInfo($"Target Directory: {targetDirectory}");
+                CopyDirectory(packageRoot, targetDirectory, true);
+
+                RoosterPlugin.LogInfo("Installation (Chaos) successful.");
+                onComplete?.Invoke(true, null);
+            }
+            catch (Exception ex)
+            {
+                RoosterPlugin.LogError($"Installation failed: {ex}");
+                onComplete?.Invoke(false, ex.Message);
+            }
+            finally
+            {
+                 try { if (Directory.Exists(tempExtractPath)) Directory.Delete(tempExtractPath, true); } catch { }
+                 try { if (File.Exists(zipPath)) File.Delete(zipPath); } catch { }
             }
         }
 
