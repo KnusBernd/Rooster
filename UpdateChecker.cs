@@ -144,6 +144,13 @@ namespace Rooster
             {
                 Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
             }
+            else
+            {
+                try {
+                     if (UserMessageManager.Instance != null && UserMessageManager.Instance.MessageHolderPrefab != null)
+                        UserMessageManager.Instance.UserMessage("No updates found.", 3.0f, UserMessageManager.UserMsgPriority.lo, false);
+                } catch {}
+            }
         }
 
         private static IEnumerator KeepAliveNotification()
