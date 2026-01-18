@@ -66,6 +66,21 @@ namespace Rooster
                 {
                     RoosterPlugin.LogInfo("No root 'BepInEx', 'plugins', or 'config' folder. Strategy: Update specific Plugin folder.");
                     targetDirectory = Path.GetDirectoryName(pluginInfo.Location);
+                    
+                    // Fix for nested folder duplication (e.g. duplicating CoolMod/CoolMod.dll -> CoolMod/CoolMod/CoolMod.dll)
+                    // If the package root contains a single directory that matches the target directory name, use that as the source.
+                    var rootDirs = Directory.GetDirectories(packageRoot);
+                    if (rootDirs.Length == 1)
+                    {
+                        string subDirName = Path.GetFileName(rootDirs[0]);
+                        string targetDirName = Path.GetFileName(targetDirectory);
+                        
+                        if (string.Equals(subDirName, targetDirName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            RoosterPlugin.LogInfo($"Detected matching subfolder '{subDirName}'. unwrapping to prevent nesting.");
+                            packageRoot = rootDirs[0]; 
+                        }
+                    }
                 }
 
                 RoosterPlugin.LogInfo($"Target Directory: {targetDirectory}");
