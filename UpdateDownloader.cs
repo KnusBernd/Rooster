@@ -12,7 +12,7 @@ namespace Rooster
     public static class UpdateDownloader
     {
         /// <summary>Downloads a file from URL to local path. Hash param is unused (API v1 limitation).</summary>
-        public static IEnumerator DownloadFile(string url, string destinationPath, string expectedHash, Action<bool, string> onComplete)
+        public static IEnumerator DownloadFile(string url, string destinationPath, Action<bool, string> onComplete)
         {
             RoosterPlugin.LogInfo($"Starting download from {url} to {destinationPath}");
             

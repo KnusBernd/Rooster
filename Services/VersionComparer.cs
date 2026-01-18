@@ -26,7 +26,7 @@ namespace Rooster.Services
                     ModName = modName, 
                     Version = latestVersion, 
                     DownloadUrl = remotePkg.latest.download_url,
-                    FileHash = remotePkg.latest.file_hash,
+
                     PluginInfo = plugin
                 };
             }

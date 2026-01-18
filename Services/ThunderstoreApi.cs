@@ -36,6 +36,15 @@ namespace Rooster.Services
                         try
                         {
                             string json = www.downloadHandler.text;
+                            
+                            // Debug: Write raw JSON to file to verify content (e.g. check for 'categories' or 'tags')
+                            try {
+                                System.IO.File.WriteAllText(System.IO.Path.Combine(Application.persistentDataPath, "Rooster_RawResponse.json"), json);
+                                RoosterPlugin.LogInfo($"Wrote raw API response to: {System.IO.Path.Combine(Application.persistentDataPath, "Rooster_RawResponse.json")}");
+                            } catch (Exception ex) {
+                                RoosterPlugin.LogError($"Failed to write raw response to file: {ex}");
+                            }
+
                             var packages = ParsePackageList(json);
                             RoosterPlugin.LogInfo($"Fetched and parsed {packages.Count} packages.");
                             onComplete?.Invoke(packages);
@@ -122,7 +131,6 @@ namespace Rooster.Services
                         {
                             version_number = verNum,
                             download_url = dlUrl ?? "",
-                            file_hash = "" // Thunderstore API v1 does not provide hashes
                         }
                     });
                 }

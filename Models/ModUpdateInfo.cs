@@ -11,7 +11,7 @@ namespace Rooster.Models
         public string ModName;
         public string Version;
         public string DownloadUrl;
-        public string FileHash;
+
         public PluginInfo PluginInfo;
     }
 }

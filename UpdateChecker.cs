@@ -140,7 +140,7 @@ namespace Rooster
                 string zipPath = Path.Combine(cacheDir, $"{update.ModName}_{update.Version}.zip");
 
                 bool downloadSuccess = false;
-                yield return UpdateDownloader.DownloadFile(update.DownloadUrl, zipPath, update.FileHash, (success, error) => 
+                yield return UpdateDownloader.DownloadFile(update.DownloadUrl, zipPath, (success, error) => 
                 {
                     downloadSuccess = success;
                     if (!success) 
