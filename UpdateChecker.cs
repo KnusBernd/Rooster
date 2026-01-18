@@ -26,6 +26,11 @@ namespace Rooster
         {
             yield return new WaitForSecondsRealtime(2.0f);
 
+            CheckComplete = false;
+            
+            // Start notification loop
+            Coroutine notificationRoutine = RoosterPlugin.Instance.StartCoroutine(KeepAliveNotification());
+
             RoosterPlugin.LogInfo("Starting Update Check...");
 
             yield return ThunderstoreApi.FetchAllPackages((packages) => {
@@ -36,12 +41,12 @@ namespace Rooster
             {
                 RoosterPlugin.LogError("Failed to fetch packages from Thunderstore. Aborting check.");
                 CheckComplete = true;
+                if (notificationRoutine != null) RoosterPlugin.Instance.StopCoroutine(notificationRoutine);
                 yield break;
             }
 
             PendingUpdates.Clear();
             MatchedPackages.Clear();
-            CheckComplete = false;
 
             RoosterPlugin.LogInfo($"Scanning {Chainloader.PluginInfos.Count} plugins against {CachedPackages.Count} online packages...");
             
@@ -133,9 +138,31 @@ namespace Rooster
             CheckComplete = true;
             RoosterPlugin.LogInfo($"Update Check Complete. Found {manualUpdates.Count} manual updates and {autoUpdates.Count} auto updates.");
             
+            if (notificationRoutine != null) RoosterPlugin.Instance.StopCoroutine(notificationRoutine);
+            
             if (manualUpdates.Count > 0)
             {
                 Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
+            }
+        }
+
+        private static IEnumerator KeepAliveNotification()
+        {
+            while (!CheckComplete)
+            {
+                // Pulse the notification every second to keep it alive
+                // We use reflection/TryCatch just in case UserMessageManager isn't ready
+                try
+                {
+                    if (UserMessageManager.Instance != null && UserMessageManager.Instance.MessageHolderPrefab != null)
+                    {
+                         // Use a short duration (2s) and refresh it every 1s
+                        UserMessageManager.Instance.UserMessage("Checking for updates...", 2.0f, UserMessageManager.UserMsgPriority.lo, false);
+                    }
+                }
+                catch { }
+
+                yield return new WaitForSecondsRealtime(1.0f);
             }
         }
 
