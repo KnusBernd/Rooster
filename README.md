@@ -39,7 +39,7 @@ Rooster takes security seriously to ensure your game and computer remain safe wh
 
 -   **Trusted Source**: Rooster **only** connects to the official [Thunderstore API](https://thunderstore.io/). It never communicates with third-party or unknown servers.
 -   **Data Privacy**: The connection is **one-way**. Rooster downloads the public mod list from Thunderstore. It **never** uploads your installed mods, usage data, or personal information.
--   **Integrity Verification** *(Planned)*: Future versions will verify downloads against SHA256 hashes when Thunderstore API support is available.
+-   **Integrity Verification**: Currently, Rooster relies on HTTPS transport security.
 -   **Open Source**: The full source code is available for audit, ensuring transparency in how your mods are managed.
 -   **User Control**: You are in charge. You can ignore specific mods or disable auto-updates entirely if you prefer manual management.
 

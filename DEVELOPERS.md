@@ -42,15 +42,17 @@ If a mod shows up in the list but doesn't have a green `*` indicator, Rooster de
 This usually happens because the mod's internal **Name** or **GUID** is too different from the **Thunderstore Name**.
 
 ## Mod Structure
-
-Rooster supports three types of ZIP structures for installation. Properly structuring your ZIP file ensures your mod installs correctly.
+ 
+Rooster supports three types of ZIP structures for installation and automatically handles path changes and folder unwrapping.
 
 ### 1. Standard (Plugin-Based)
 The most common structure. The `.dll` file is located at the root of the ZIP (alongside `manifest.json`).
 
 *   **Structure**: `ZIP Root` -> `MyMod.dll`, `manifest.json`
-*   **Install Location**: `Ultimate Chicken Horse/BepInEx/plugins/MyModName/`
-*   **Best For**: Simple mods with just a DLL or a DLL + AssetBundle.
+*   **Install Location**: `BepInEx/plugins/` (If a specific folder exists for the mod, it installs there).
+*   **Features**:
+    *   **Auto-Unwrap**: If your ZIP puts the DLL inside a folder (e.g. `MyMod/MyMod.dll`) that matches your install folder, Rooster prevents nesting (no `MyMod/MyMod/MyMod.dll`). 
+    *   **Anti-Duplicate**: If you rename your plugin file or folder in an update, Rooster detects the path change and cleans up the old file to prevent duplicates.
 
 ### 2. Root-Based (Game Root)
 Used for mods that need to place files in the game's root directory or multiple subdirectories.
@@ -65,3 +67,4 @@ Used for mods that explicitly target the `plugins` or `config` folders but are z
 *   **Structure**: `ZIP Root` -> `plugins/` OR `config/`, `manifest.json`
 *   **Install Location**: Merged into `Ultimate Chicken Horse/BepInEx/`.
 *   **Best For**: Mods offering preset configurations or specific plugin organizations.
+
