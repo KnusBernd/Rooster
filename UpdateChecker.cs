@@ -67,13 +67,6 @@ namespace Rooster
 
             RoosterPlugin.LogInfo($"Scanning {Chainloader.PluginInfos.Count} plugins against {packageMap.Count} online packages...");
             
-            UpdatesAvailable.Clear();
-            PendingUpdates.Clear();
-            MatchedPackages.Clear();
-            CheckComplete = false;
-
-            RoosterPlugin.LogInfo($"Scanning {Chainloader.PluginInfos.Count} plugins against {packageMap.Count} online packages...");
-            
             List<ModUpdateInfo> manualUpdates = new List<ModUpdateInfo>();
             List<ModUpdateInfo> autoUpdates = new List<ModUpdateInfo>();
 
