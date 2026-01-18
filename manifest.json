@@ -4,6 +4,6 @@
     "website_url": "https://github.com/knusbernd/Rooster",
     "description": "A mod manager that keeps your mods up to date. Auto-discovery, one-click updates, and more.",
     "dependencies": [
-        "BepInEx-BepInExPack-5.4.1900"
+        "BepInEx-BepInExPack-5.4.2304"
     ]
 }

@@ -56,7 +56,7 @@ Rooster takes security seriously to ensure your game and computer remain safe wh
 
 ## For Developers
 
-If you're a mod developer, see [DEVELOPERS.md](DEVELOPERS.md) for guidance on:
+If you're a mod developer, see [DEVELOPERS.md](https://github.com/KnusBernd/Rooster/blob/master/DEVELOPERS.md) for guidance on:
 - Naming your mod for auto-discovery
 - Structuring your ZIP package for proper installation
 - Troubleshooting detection issues
