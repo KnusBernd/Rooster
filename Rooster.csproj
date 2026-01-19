@@ -105,6 +105,7 @@
     <Compile Include="Services\VersionComparer.cs" />
     <Compile Include="Services\UpdateLoopPreventer.cs" />
     <Compile Include="UI\UIHelpers.cs" />
+    <Compile Include="UI\ModDetailsUI.cs" />
     <Compile Include="UI\ModBrowserUI.cs" />
     <Compile Include="UI\DeveloperUI.cs" />
     <Compile Include="UI\PopupController.cs" />

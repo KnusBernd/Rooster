@@ -19,6 +19,7 @@ namespace Rooster
         public static bool RestartRequired = false;
 
         public static List<ModUpdateInfo> PendingUpdates = new List<ModUpdateInfo>();
+        public static HashSet<string> PendingInstalls = new HashSet<string>();
 
         /// <summary>Runs the update check process as a coroutine.</summary>
         public static IEnumerator CheckForUpdates()

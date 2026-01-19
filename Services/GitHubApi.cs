@@ -265,10 +265,6 @@ namespace Rooster.Services
 
         private static IEnumerator FetchRepoContents(CuratedRepo repoInfo, Action<List<ThunderstorePackage>, string> onRepoComplete)
         {
-            // NEW STRATEGY: Recursive Tree Search using Git Data API
-            // 1. Get latest commit SHA (HEAD)
-            // 2. Get Tree recursively
-            
             RoosterPlugin.LogInfo($"[RecursiveFetch] Starting search for {repoInfo.Repo}...");
             string commitUrl = $"https://api.github.com/repos/{repoInfo.Repo}/commits/HEAD";
             string headSha = null;
@@ -337,13 +333,12 @@ namespace Rooster.Services
         {
             var packages = new List<ThunderstorePackage>();
             // Expecting Array [ { ... }, { ... } ]
-            // We only want the FIRST one (latest by date usually)
             
             int arrayStart = json.IndexOf('[');
-            if (arrayStart < 0) return packages; // Not an array of releases?
+            if (arrayStart < 0) return packages; 
             
             int objStart = json.IndexOf('{', arrayStart);
-            if (objStart < 0) return packages; // Empty array?
+            if (objStart < 0) return packages;
             
             int objEnd = FindMatchingClosingChar(json, objStart, '{', '}');
             if (objEnd < 0) return packages;
@@ -361,7 +356,6 @@ namespace Rooster.Services
             string body = ThunderstoreApi.ExtractJsonValue(json, "body");
             string author = repoInfo.Repo.Split('/')[0];
             
-            // 1. Check strict assets
             int assetsIdx = json.IndexOf("\"assets\":");
             if (assetsIdx >= 0)
             {
@@ -390,8 +384,6 @@ namespace Rooster.Services
                 }
             }
             
-            // 2. Fallback: Check Body for direct .zip links (e.g. UCH-AutoSave-Mod)
-            // Regex-like search for http...zip
             if (packages.Count == 0 && !string.IsNullOrEmpty(body))
             {
                 int linkIndex = 0;
@@ -403,7 +395,6 @@ namespace Rooster.Services
                         int endIndex = zipIndex + 4; // include .zip
                         string url = body.Substring(linkIndex, endIndex - linkIndex);
                         
-                        // Basic cleanup if URL is dirty (e.g. stuck to parentheses or quotes)
                         if (!url.Contains(" ") && !url.Contains("\n") && !url.Contains("\""))
                         {
                              string filename = System.IO.Path.GetFileName(url);
@@ -423,8 +414,6 @@ namespace Rooster.Services
              var packages = new List<ThunderstorePackage>();
              string author = repoInfo.Repo.Split('/')[0];
              
-             // Manual Parsing to avoid JsonUtility quirks with nested arrays
-             // Look for "tree": [ ... ]
              int treeKeyIndex = json.IndexOf("\"tree\":");
              if (treeKeyIndex < 0) 
              {
@@ -438,7 +427,6 @@ namespace Rooster.Services
              int arrayEnd = FindMatchingClosingChar(json, arrayStart, '[', ']');
              if (arrayEnd < 0) return packages;
 
-             // Extract the array content
              string treeArrayJson = json.Substring(arrayStart, arrayEnd - arrayStart + 1);
              
              RoosterPlugin.LogInfo($"[RecursiveFetch] Parsing tree array (Length: {treeArrayJson.Length}) for {repoInfo.Repo}");
@@ -457,14 +445,11 @@ namespace Rooster.Services
                  string path = ThunderstoreApi.ExtractJsonValue(itemJson, "path");
                  string type = ThunderstoreApi.ExtractJsonValue(itemJson, "type");
                  
-                 // Log everything found to be sure 
-                 // RoosterPlugin.LogInfo($"[RecursiveFetch] Found Item: {path} ({type})");
 
                  if (type == "blob" && !string.IsNullOrEmpty(path))
                  {
                      string filename = System.IO.Path.GetFileName(path);
                      
-                     // Filter Check
                      bool isZip = filename.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
                      bool isDll = filename.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
                      
@@ -477,7 +462,6 @@ namespace Rooster.Services
                          }
                          else
                          {
-                            // Construct Raw URL
                             string downloadUrl = $"https://raw.githubusercontent.com/{repoInfo.Repo}/{sha}/{path}";
                             
                             RoosterPlugin.LogInfo($"[RecursiveFetch] ACCEPTED: {path}");
@@ -494,8 +478,6 @@ namespace Rooster.Services
 
         private static void ProcessAsset(List<ThunderstorePackage> packages, string name, string downloadUrl, string author, string desc, string version)
         {
-             // Filter: accept .zip and .dll
-             // Exclude source code
              if (string.IsNullOrEmpty(name)) return;
              
              bool isZip = name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
@@ -508,7 +490,6 @@ namespace Rooster.Services
                  string modName = name.Replace(".zip", "")
                                       .Replace(".dll", "");
                  
-                 // Strip version from name if present (e.g. CamHogMod-0.0.0.2 -> CamHogMod)
                  modName = StripVersionFromName(modName);
                  
                  packages.Add(new ThunderstorePackage
@@ -599,13 +580,7 @@ namespace Rooster.Services
 
         private static int FindMatchingClosingChar(string json, int openIndex, char openChar, char closeChar)
         {
-            // Reusing logic from ThunderstoreApi would be better if public, duplicating strictly for simplicity in this task scope 
-            // but actually I can't easily access private method. 
-            // I'll copy-paste the logic or make ThunderstoreApi's method public? 
-            // ThunderstoreApi.FindMatchingClosingChar is private. 
-            // I'll make it public in ThunderstoreApi in next step or duplicate it.
-            // Duplicate for now to avoid altering ThunderstoreApi visibility just for this.
-             int depth = 0;
+            int depth = 0;
             bool inString = false;
             for (int i = openIndex; i < json.Length; i++)
             {

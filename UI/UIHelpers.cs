@@ -88,6 +88,7 @@ namespace Rooster.UI
 
             return sbObj;
         }
+
         public static TabletColorScheme CloneColorScheme(TabletColorScheme source, GameObject target)
         {
             var newScheme = target.AddComponent<TabletColorScheme>();
@@ -116,6 +117,7 @@ namespace Rooster.UI
             
             return newScheme;
         }
+
         public class ScrollLayout
         {
             public ScrollRect ScrollRect;
@@ -126,52 +128,41 @@ namespace Rooster.UI
 
         public static ScrollLayout CreateScrollLayout(GameObject parent, string namePrefix, float topMargin, float bottomMargin, float sideMargin = 0f, float scrollbarWidth = 40f, float scrollbarPadding = 10f)
         {
-             // Container for Viewport + Scrollbar? Or just child of parent?
-             // Usually Parent is the main container.
-             // We assume Parent is a RectTransform.
-             
-             // 1. Viewport
+
              var viewportObj = new GameObject($"{namePrefix}Viewport", typeof(RectTransform));
              viewportObj.layer = parent.layer;
              viewportObj.transform.SetParent(parent.transform, false);
              var viewportRect = viewportObj.GetComponent<RectTransform>();
              
-             // Anchors: Fill parent but respect margins
+             // Fill parent but respect margins
              viewportRect.anchorMin = Vector2.zero;
              viewportRect.anchorMax = Vector2.one;
              viewportRect.pivot = new Vector2(0, 1);
              
              // Offsets: 
-             // MinX = sideMargin
-             // MinY = bottomMargin
-             // MaxX = -(sideMargin + scrollbarWidth + scrollbarPadding) // Make room for scrollbar on right
-             // MaxY = -topMargin
+             // Make room for scrollbar on right
              viewportRect.offsetMin = new Vector2(sideMargin, bottomMargin);
              viewportRect.offsetMax = new Vector2(-(sideMargin + scrollbarWidth + scrollbarPadding), -topMargin);
              
              var vpImg = viewportObj.AddComponent<Image>();
              vpImg.sprite = GetWhiteSprite();
-             vpImg.color = new Color(1, 1, 1, 0.05f); // Faint background for visibility debugging or style? usually clear or white
+             vpImg.color = new Color(1, 1, 1, 0.05f);
              vpImg.color = Color.white;
              
              var mask = viewportObj.AddComponent<Mask>();
              mask.showMaskGraphic = false;
 
-             // 2. Content
              var contentObj = new GameObject($"{namePrefix}Content", typeof(RectTransform));
              contentObj.layer = parent.layer;
              contentObj.transform.SetParent(viewportRect, false);
              var contentRect = contentObj.GetComponent<RectTransform>();
              
              contentRect.anchorMin = new Vector2(0, 1);
-             contentRect.anchorMax = new Vector2(1, 1); // Stretch width
+             contentRect.anchorMax = new Vector2(1, 1); 
              contentRect.pivot = new Vector2(0.5f, 1);
              contentRect.anchoredPosition = Vector2.zero;
              contentRect.sizeDelta = Vector2.zero; // height controlled by fitter
              
-             // 3. ScrollRect on Parent? Or on Viewport? 
-             // Usually ScrollRect is on the Parent provided, or we create a container.
-             // Existing code puts ScrollRect on the 'container' (parent).
              
              var scrollRect = parent.GetComponent<ScrollRect>() ?? parent.AddComponent<ScrollRect>();
              scrollRect.content = contentRect;
@@ -181,27 +172,17 @@ namespace Rooster.UI
              scrollRect.movementType = ScrollRect.MovementType.Clamped;
              scrollRect.scrollSensitivity = 30f;
              
-             // 4. Scrollbar
-             // Position it to the right of the viewport
+             // Scrollbar
              var scrollbarObj = CreateScrollbar(parent.GetComponent<RectTransform>(), scrollRect, namePrefix);
              var sbRect = scrollbarObj.GetComponent<RectTransform>();
-             
-             // Adjust Scrollbar to match Viewport vertical span
-             // Anchor Min/Max Y should match Viewport logic implicitly if parent is same size, 
-             // but using offsets is safer if we want exact pixel match.
              
              sbRect.anchorMin = new Vector2(1, 0);
              sbRect.anchorMax = new Vector2(1, 1);
              sbRect.pivot = new Vector2(1, 1);
              
-             // MinY = bottomMargin
-             // MaxY = -topMargin
-             // Width = scrollbarWidth
-             // X pos = -sideMargin
-             
              sbRect.offsetMin = new Vector2(-scrollbarWidth - sideMargin, bottomMargin);
              sbRect.offsetMax = new Vector2(-sideMargin, -topMargin);
-             sbRect.sizeDelta = new Vector2(scrollbarWidth, sbRect.sizeDelta.y); // y is ignored due to anchors but offsets define it
+             sbRect.sizeDelta = new Vector2(scrollbarWidth, sbRect.sizeDelta.y);
              
              return new ScrollLayout 
              {
@@ -210,6 +191,58 @@ namespace Rooster.UI
                  Content = contentRect,
                  ScrollbarObj = scrollbarObj
              };
+        }
+        public static void AddText(Transform parent, string content, int fontSize, bool bold, Color color)
+        {
+            var obj = new GameObject("Text", typeof(RectTransform));
+            obj.transform.SetParent(parent, false);
+            var txt = obj.AddComponent<Text>();
+            txt.text = bold ? $"<b>{content}</b>" : content;
+            txt.supportRichText = true;
+            txt.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            txt.fontSize = fontSize;
+            txt.color = color;
+            txt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            txt.verticalOverflow = VerticalWrapMode.Overflow;
+
+            var layout = obj.AddComponent<LayoutElement>();
+            layout.preferredHeight = fontSize + 10;
+            layout.flexibleWidth = 1;
+        }
+
+        public static TabletButton CreateButton(Transform parent, TabletButton template, string text, float width, float height)
+        {
+            var btnObj = UnityEngine.Object.Instantiate(template.gameObject, parent);
+            btnObj.name = "Btn_" + text.Replace(" ", "");
+            
+            // Layout
+            var oldLe = btnObj.GetComponent<LayoutElement>();
+            if (oldLe != null) UnityEngine.Object.Destroy(oldLe);
+            var le = btnObj.AddComponent<LayoutElement>();
+            le.preferredHeight = height;
+            le.preferredWidth = width;
+
+            // Label
+            var label = btnObj.GetComponentInChildren<TabletTextLabel>();
+            if (label != null)
+            {
+                label.text = text;
+                label.transform.localScale = new Vector3(0.5f, 0.5f, 1f); 
+                label.labelType = TabletTextLabel.LabelType.Normal;
+            }
+
+            // Button Component
+            var tabletBtn = btnObj.GetComponent<TabletButton>();
+            if (tabletBtn != null)
+            {
+                // Clone scheme by default so it has its own instance
+                tabletBtn.colorScheme = CloneColorScheme(template.colorScheme, btnObj);
+                tabletBtn.buttonType = TabletButton.ButtonType.Simple;
+                tabletBtn.ResetStyles();
+            }
+
+            btnObj.SetActive(true);
+            return tabletBtn;
         }
     }
 }

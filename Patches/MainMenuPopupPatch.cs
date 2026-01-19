@@ -9,7 +9,7 @@ namespace Rooster.Patches
     /// </summary>
     public static class MainMenuPopupPatch
     {
-        public enum MenuState { None, ModMenu, ModSettings, ModBrowser, UpdateMenu, BetaWarning, RestartRequired }
+        public enum MenuState { None, ModMenu, ModSettings, ModBrowser, ModDetails, UpdateMenu, BetaWarning, RestartRequired }
 
         public static MenuState CurrentMenuState = MenuState.None;
 
@@ -44,9 +44,18 @@ namespace Rooster.Patches
                 return false;
             }
             
+            if (CurrentMenuState == MenuState.ModDetails)
+            {
+                ModDetailsUI.CleanupCustomUI();
+                CurrentMenuState = MenuState.ModBrowser;
+                ModBrowserUI.ShowModBrowser();
+                return false;
+            }
+
             if (CurrentMenuState == MenuState.ModBrowser)
             {
                 ModBrowserUI.DestroyUI(null); // Just destroy content, keep modal for menu
+                ModDetailsUI.CleanupCustomUI(); 
                 CurrentMenuState = MenuState.ModMenu;
                 ModMenuUI.ShowModMenu();
                 return false;
@@ -56,6 +65,7 @@ namespace Rooster.Patches
             ModSettingsUI.CleanupCustomUI();
             UpdateMenuUI.DestroyUI();
             ModBrowserUI.DestroyUI(null);
+            ModDetailsUI.CleanupCustomUI();
             CurrentMenuState = MenuState.None;
             return true;
         }

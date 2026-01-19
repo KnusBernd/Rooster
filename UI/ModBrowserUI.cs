@@ -13,6 +13,7 @@ namespace Rooster.UI
     {
         private static GameObject _viewportObj;
         private static GameObject _scrollbarObj;
+        private static ScrollRect _scrollRect;
         private static List<GameObject> _itemButtons = new List<GameObject>();
         private static Vector2? _originalSize;
         
@@ -25,6 +26,15 @@ namespace Rooster.UI
         private static TabletButton _refreshButton;
         private static TabletTextLabel _refreshLabel;
         private static GameObject _loadingSpinner;
+
+        public static void SetVisible(bool visible)
+        {
+            if (_viewportObj != null) _viewportObj.SetActive(visible);
+            if (_scrollbarObj != null) _scrollbarObj.SetActive(visible);
+            if (_scrollRect != null) _scrollRect.enabled = visible;
+            foreach (var b in _itemButtons) if (b != null) b.SetActive(visible);
+            if (_refreshButton != null) _refreshButton.gameObject.SetActive(visible);
+        }
 
 
         public static void ShowModBrowser()
@@ -62,6 +72,7 @@ namespace Rooster.UI
             
             // Initial Fetch
             RoosterPlugin.Instance.StartCoroutine(FetchAndDisplay(false));
+            SetVisible(true); // Ensure visible
         }
 
         private static void Close()
@@ -78,15 +89,10 @@ namespace Rooster.UI
                 _refreshButton.SetInteractable(false);
                 _refreshButton.SetDisabled(true); 
             }
-            if (_refreshLabel != null) _refreshLabel.text = ""; // Hide text for spinner
+            
+            if (_refreshLabel != null) _refreshLabel.text = "";
             if (_loadingSpinner != null) _loadingSpinner.SetActive(true);
 
-
-            
-            // Loading Indicator removed per user request
-
-
-            // FORCE REFRESH: Clear Local Caches
             if (forceRefresh)
             {
                 _thunderstoreMods.Clear();
@@ -95,7 +101,7 @@ namespace Rooster.UI
                 GitHubApi.CachedPackages.Clear();
             }
 
-                // 1. THUNDERSTORE FETCH
+                //  THUNDERSTORE FETCH
                 if (_thunderstoreMods.Count > 0 && !forceRefresh)
                 {
                      RoosterPlugin.LogInfo($"ModBrowser: Using cached Thunderstore list ({_thunderstoreMods.Count} items)");
@@ -110,7 +116,6 @@ namespace Rooster.UI
                         tsComplete = true;
                     }));
                     
-                    // Wait with Timeout (45s)
                     float tsTimeout = UnityEngine.Time.realtimeSinceStartup + 45f;
                     yield return new WaitUntil(() => tsComplete || UnityEngine.Time.realtimeSinceStartup > tsTimeout);
 
@@ -135,7 +140,7 @@ namespace Rooster.UI
                     }
                 }
 
-                // 2. GITHUB FETCH
+                //  GITHUB FETCH
                 if (GitHubApi.IsCacheReady && !forceRefresh)
                 {
                      RoosterPlugin.LogInfo($"ModBrowser: Using Startup GitHub Cache ({GitHubApi.CachedPackages.Count} items)");
@@ -161,7 +166,6 @@ namespace Rooster.UI
                         ghComplete = true;
                     }));
                     
-                    // Wait with Timeout (45s)
                     float ghTimeout = UnityEngine.Time.realtimeSinceStartup + 45f;
                     yield return new WaitUntil(() => ghComplete || UnityEngine.Time.realtimeSinceStartup > ghTimeout);
                     
@@ -197,20 +201,17 @@ namespace Rooster.UI
 
         private static void HideLoading()
         {
-             RoosterPlugin.LogInfo("ModBrowser: Hiding loading text/spinner.");
-             if (_currentModal != null && _currentModal.simpleMessageText != null) 
-                _currentModal.simpleMessageText.gameObject.SetActive(false);
-                
-             if (_loadingSpinner != null) _loadingSpinner.SetActive(false);
+            RoosterPlugin.LogInfo("ModBrowser: Hiding loading text/spinner.");
+            if (_currentModal != null && _currentModal.simpleMessageText != null) 
+            _currentModal.simpleMessageText.gameObject.SetActive(false);
+            
+            if (_loadingSpinner != null) _loadingSpinner.SetActive(false);
         }
         
         private static void ShowErrorModal(string message)
         {
              RoosterPlugin.LogError("Showing Error Modal: " + message);
              if (_currentModal == null) return;
-             
-             // We can use the simple message but it overrides everything.
-             // Let's just create a popup overlay on top of our browser.
              
              var errorObj = new GameObject("ErrorPopup", typeof(RectTransform));
              errorObj.transform.SetParent(_currentModal.transform, false);
@@ -227,11 +228,9 @@ namespace Rooster.UI
              vLayout.spacing = 20;
              vLayout.padding = new RectOffset(50, 50, 50, 50);
              
-             // Text
-             AddText(errorObj.transform, "Error", 30, true, Color.red);
-             AddText(errorObj.transform, message, 20, false, Color.white);
+             UIHelpers.AddText(errorObj.transform, "Error", 30, true, Color.red);
+             UIHelpers.AddText(errorObj.transform, message, 20, false, Color.white);
              
-             // Dismiss Button
              var btnObj = UnityEngine.Object.Instantiate(_buttonTemplate.gameObject, errorObj.transform);
              var lbl = btnObj.GetComponentInChildren<TabletTextLabel>();
              if (lbl != null) lbl.text = "Dismiss";
@@ -261,14 +260,11 @@ namespace Rooster.UI
             var bgImg = container.gameObject.GetComponent<Image>() ?? container.gameObject.AddComponent<Image>();
             bgImg.color = Color.clear;
 
-            // Use Unified Scroll Layout
-            // Top: 120 (tabs)
-            // Bottom: 0
-            // Side: 25
             var layout = UIHelpers.CreateScrollLayout(container.gameObject, "Browser", 120, 0, 25, 40, 10);
             
             _viewportObj = layout.Viewport.gameObject;
             _scrollbarObj = layout.ScrollbarObj;
+            _scrollRect = layout.ScrollRect;
             
             // Setup Content Layout
             var contentObj = layout.Content.gameObject;
@@ -282,7 +278,6 @@ namespace Rooster.UI
             var fitter = contentObj.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             
-            // Create Tabs (attached to Container, not Viewport)
             CreateTabs(container);
 
             // Hide default text
@@ -291,9 +286,6 @@ namespace Rooster.UI
 
         private static void CreateTabs(Transform parent)
         {
-            // Evenly Spaced Buttons: -300, 0, 300
-            // Widths: 300, 300, 200
-            
             CreateTabButton(parent, "Thunderstore", -315, () => {
                 if (!_isThunderstoreTab) {
                     _isThunderstoreTab = true;
@@ -312,7 +304,6 @@ namespace Rooster.UI
                 }
             }, !_isThunderstoreTab);
             
-            // REFRESH BUTTON
             CreateRefreshButton(parent);
         }
         
@@ -384,8 +375,6 @@ namespace Rooster.UI
             
             _itemButtons.Add(btnObj); 
             
-            // Try clone loading spinner
-            // "main Buttons" is usually at top level when searching or via TabletMainMenuHome
             GameObject playOnline = GameObject.Find("main Buttons/Play Online");
             if (playOnline != null)
             {
@@ -413,11 +402,9 @@ namespace Rooster.UI
         {
             if (_buttonTemplate == null) return;
 
-             // Create a temporary object to hold the button
             var btnObj = UnityEngine.Object.Instantiate(_buttonTemplate.gameObject, parent);
             btnObj.name = "Tab_" + text;
              
-            // Position
             var rect = btnObj.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, 1);
             rect.anchorMax = new Vector2(0.5f, 1);
@@ -425,7 +412,6 @@ namespace Rooster.UI
             rect.sizeDelta = new Vector2(300, 80); // Slightly smaller to fit refresh
             rect.anchoredPosition = new Vector2(xOffset, -10);
 
-            // Label
             var label = btnObj.GetComponentInChildren<TabletTextLabel>();
              if (label != null)
             {
@@ -444,12 +430,10 @@ namespace Rooster.UI
             var tabletBtn = btnObj.GetComponent<TabletButton>();
             if (tabletBtn != null)
             {
-                 // Create custom color scheme
                  var newScheme = UIHelpers.CloneColorScheme(_buttonTemplate.colorScheme, btnObj);
                  
                  Color activeColor = new Color(0.2f, 0.6f, 1f); // Blue
                  Color inactiveColor = new Color(0.5f, 0.5f, 0.5f); // Grey
-                 // Hover color depends on state: Blue if active, Lighter Grey if inactive
                  Color hoverColor = active ? new Color(0.3f, 0.7f, 1f) : new Color(0.6f, 0.6f, 0.6f);
                  
                  Color baseColor = active ? activeColor : inactiveColor;
@@ -475,7 +459,6 @@ namespace Rooster.UI
                   }
             }
             
-            // Remove LayoutElement if present from template
             var le = btnObj.GetComponent<LayoutElement>();
             if (le != null) UnityEngine.Object.Destroy(le);
             
@@ -484,109 +467,111 @@ namespace Rooster.UI
 
         private static void RefreshList()
         {
-             RoosterPlugin.LogInfo("ModBrowser: RefreshList");
-             if (_viewportObj == null) 
-             {
-                 RoosterPlugin.LogError("ModBrowser: Viewport is null!");
-                 return;
-             }
-             
-             // Get existing Content from ScrollRect (which is on Parent/Container)
-             // CreateScrollLayout attached ScrollRect to Container
-             var scrollRect = _viewportObj.transform.parent.GetComponent<ScrollRect>();
-             if (scrollRect == null || scrollRect.content == null) 
-             {
-                 RoosterPlugin.LogError("ModBrowser: ScrollRect or Content is null!");
-                 return;
-             }
-             
-             var contentRect = scrollRect.content;
-             RoosterPlugin.LogInfo($"ModBrowser: Clearing content (children: {contentRect.childCount})");
-             
-             // Destroy existing items (children)
-             foreach (Transform child in contentRect)
-             {
-                 UnityEngine.Object.Destroy(child.gameObject);
-             }
-             
-             var list = _isThunderstoreTab ? _thunderstoreMods : _curatedMods;
-             RoosterPlugin.LogInfo($"ModBrowser: Populating {list.Count} items. (Tab: {(_isThunderstoreTab ? "Thunderstore" : "GitHub")})");
-             
-             foreach(var pkg in list)
-             {
-                 CreatePackageItem(contentRect, pkg);
-             }
-             
-             Canvas.ForceUpdateCanvases();
-             LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
+            RoosterPlugin.LogInfo("ModBrowser: RefreshList");
+            if (_viewportObj == null) 
+            {
+                RoosterPlugin.LogError("ModBrowser: Viewport is null!");
+                return;
+            }
+            
+            var scrollRect = _viewportObj.transform.parent.GetComponent<ScrollRect>();
+            if (scrollRect == null || scrollRect.content == null) 
+            {
+                RoosterPlugin.LogError("ModBrowser: ScrollRect or Content is null!");
+                return;
+            }
+            
+            var contentRect = scrollRect.content;
+            RoosterPlugin.LogInfo($"ModBrowser: Clearing content (children: {contentRect.childCount})");
+            
+            foreach (Transform child in contentRect)
+            {
+                UnityEngine.Object.Destroy(child.gameObject);
+            }
+            
+            var list = _isThunderstoreTab ? _thunderstoreMods : _curatedMods;
+            RoosterPlugin.LogInfo($"ModBrowser: Populating {list.Count} items. (Tab: {(_isThunderstoreTab ? "Thunderstore" : "GitHub")})");
+            
+            foreach(var pkg in list)
+            {
+                CreatePackageItem(contentRect, pkg);
+            }
+            
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
         }
 
         private static TabletButton _buttonTemplate;
 
         private static void CreatePackageItem(RectTransform parent, ThunderstorePackage pkg)
         {
-             if (_buttonTemplate == null) return;
-             
-             var btnObj = UnityEngine.Object.Instantiate(_buttonTemplate.gameObject, parent);
-             btnObj.name = "Pkg_" + pkg.name;
-             
-             var label = btnObj.GetComponentInChildren<TabletTextLabel>();
-             if (label != null)
-             {
-                 label.text = $"{pkg.name} v{pkg.latest.version_number}";
-                  // Maybe append " (Installed)" if detected?
-                 label.labelType = TabletTextLabel.LabelType.SmallText;
-                 
-                  var uiText = label.GetComponent<Text>();
-                 if (uiText != null) uiText.supportRichText = true;
-             }
-             
-             var tabletBtn = btnObj.GetComponent<TabletButton>();
-             if (tabletBtn != null)
-             {
-                 if (tabletBtn.colorScheme == null) tabletBtn.colorScheme = _buttonTemplate.colorScheme;
-                 
-                 tabletBtn.OnClick = new TabletButtonEvent();
-                 tabletBtn.OnClick.AddListener((cursor) => OpenDetails(pkg));
-                 tabletBtn.SetDisabled(false);
-                 tabletBtn.SetInteractable(true);
-                 tabletBtn.ResetStyles();
-                 
-                 // Check installation status
-                 bool isInstalled = false;
-                 if (UpdateChecker.MatchedPackages != null)
-                 {
-                     foreach (var installedPkg in UpdateChecker.MatchedPackages.Values)
-                     {
-                         if (installedPkg.full_name == pkg.full_name)
-                         {
-                             isInstalled = true;
-                             break;
-                         }
-                     }
-                 }
-                 
-                 Color normalColor;
-                 Color hoverColor;
-                 
-                  if (isInstalled)
-                  {
-                     normalColor = new Color(0.2f, 0.7f, 0.3f); // Standard Green for installed
-                     hoverColor = new Color(0.3f, 0.8f, 0.4f);
-                  }
-                  else
-                  {
-                      normalColor = new Color(0.8f, 0.8f, 0.8f); // Grey
-                      hoverColor = new Color(0.9f, 0.9f, 0.9f); // Lighter Grey
-                  }
-                  
-                  // Use custom scheme
-                  var newScheme = UIHelpers.CloneColorScheme(_buttonTemplate.colorScheme, btnObj);
-                  newScheme.buttonBgColor = normalColor;
-                  newScheme.buttonBgColor_Hover = hoverColor;
-                  
-                  tabletBtn.colorScheme = newScheme;
-                  tabletBtn.ResetStyles();
+            if (_buttonTemplate == null) return;
+            
+            var btnObj = UnityEngine.Object.Instantiate(_buttonTemplate.gameObject, parent);
+            btnObj.name = "Pkg_" + pkg.name;
+            
+            var label = btnObj.GetComponentInChildren<TabletTextLabel>();
+            if (label != null)
+            {
+                label.text = $"{pkg.name.Replace('_', ' ')} v{pkg.latest.version_number}";
+                // Maybe append " (Installed)" if detected?
+                label.labelType = TabletTextLabel.LabelType.SmallText;
+                
+                var uiText = label.GetComponent<Text>();
+                if (uiText != null) uiText.supportRichText = true;
+            }
+            
+            var tabletBtn = btnObj.GetComponent<TabletButton>();
+            if (tabletBtn != null)
+            {
+                if (tabletBtn.colorScheme == null) tabletBtn.colorScheme = _buttonTemplate.colorScheme;
+                
+                tabletBtn.OnClick = new TabletButtonEvent();
+                tabletBtn.OnClick.AddListener((cursor) => ModDetailsUI.ShowDetails(pkg));
+                tabletBtn.SetDisabled(false);
+                tabletBtn.SetInteractable(true);
+                tabletBtn.ResetStyles();
+                
+                // Check installation status
+                bool isInstalled = false;
+                if (UpdateChecker.MatchedPackages != null)
+                {
+                    foreach (var installedPkg in UpdateChecker.MatchedPackages.Values)
+                    {
+                        if (installedPkg.full_name == pkg.full_name)
+                        {
+                            isInstalled = true;
+                            break;
+                        }
+                    }
+                }
+                
+                Color normalColor;
+                Color hoverColor;
+                
+                if (isInstalled)
+                {
+                    normalColor = new Color(0.2f, 0.7f, 0.3f); // Standard Green for installed
+                    hoverColor = new Color(0.3f, 0.8f, 0.4f);
+                }
+                else if (UpdateChecker.PendingInstalls.Contains(pkg.full_name))
+                {
+                    normalColor = new Color(0.8f, 0.6f, 0.2f); // Orange/Amber for Pending
+                    hoverColor = new Color(0.9f, 0.7f, 0.3f);
+                }
+                else
+                {
+                    normalColor = new Color(0.8f, 0.8f, 0.8f); // Grey
+                    hoverColor = new Color(0.9f, 0.9f, 0.9f); // Lighter Grey
+                }
+                
+                // Use custom scheme
+                var newScheme = UIHelpers.CloneColorScheme(_buttonTemplate.colorScheme, btnObj);
+                newScheme.buttonBgColor = normalColor;
+                newScheme.buttonBgColor_Hover = hoverColor;
+                
+                tabletBtn.colorScheme = newScheme;
+                tabletBtn.ResetStyles();
              }
 
              var le = btnObj.GetComponent<LayoutElement>() ?? btnObj.AddComponent<LayoutElement>();
@@ -597,178 +582,29 @@ namespace Rooster.UI
              btnObj.SetActive(true);
         }
 
-        private static void OpenDetails(ThunderstorePackage pkg)
-        {
-            // Simple popup
-            if (_currentModal == null) return;
-            
-            // We can't easily stack modals with current Tablet system (it's one overlay).
-            // So we'll clear the content and show details, with a different back action.
-            
-            // Hide Browser List
-            _viewportObj.SetActive(false);
-            if (_scrollbarObj != null) _scrollbarObj.SetActive(false);
-            foreach(var b in _itemButtons) b.SetActive(false);
-            
-            var detailsObj = new GameObject("DetailsView", typeof(RectTransform));
-            detailsObj.transform.SetParent(_currentModal.simpleMessageContainer, false);
-            var rect = detailsObj.GetComponent<RectTransform>();
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = new Vector2(50, 50);
-            rect.offsetMax = new Vector2(-50, -100);
-            
-            var img = detailsObj.AddComponent<Image>();
-            img.color = Color.white;
-            
-            var vLayout = detailsObj.AddComponent<VerticalLayoutGroup>();
-            vLayout.padding = new RectOffset(40, 40, 40, 40);
-            vLayout.spacing = 20;
-            
-            // Title
-            AddText(detailsObj.transform, pkg.name, 40, true, Color.black);
-            AddText(detailsObj.transform, "by " + pkg.full_name?.Split('-')[0], 24, false, Color.black);
-            
-            // Description
-            AddText(detailsObj.transform, pkg.description, 20, false, Color.black);
-            
-            // Install Button
-            var installBtnObj = new GameObject("InstallBtn", typeof(RectTransform));
-            installBtnObj.transform.SetParent(detailsObj.transform, false);
-            var le = installBtnObj.AddComponent<LayoutElement>();
-            le.preferredHeight = 60;
-            le.preferredWidth = 200;
-            
-            var btnImg = installBtnObj.AddComponent<Image>();
-            btnImg.color = Color.green;
-            
-            var btn = installBtnObj.AddComponent<Button>();
-            
-            var btnTxt = new GameObject("Text", typeof(RectTransform));
-            btnTxt.transform.SetParent(installBtnObj.transform, false);
-            var txt = btnTxt.AddComponent<Text>();
-            txt.text = "Install";
-            txt.alignment = TextAnchor.MiddleCenter;
-            txt.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            txt.fontSize = 24;
-            txt.color = Color.white;
-            var tRect = btnTxt.GetComponent<RectTransform>();
-            tRect.anchorMin = Vector2.zero;
-            tRect.anchorMax = Vector2.one;
-            
-            // Check if installed
-            bool isInstalled = false;
-            if (Rooster.UpdateChecker.MatchedPackages != null)
-            {
-                 foreach(var installedPkg in Rooster.UpdateChecker.MatchedPackages.Values)
-                 {
-                     if (installedPkg.full_name == pkg.full_name)
-                     {
-                         isInstalled = true;
-                         break;
-                     }
-                 }
-            }
-            
-            if (isInstalled)
-            {
-                txt.text = "Installed";
-                btn.interactable = false;
-                btnImg.color = Color.gray;
-            }
-            else
-            {
-                btn.onClick.AddListener(() => {
-                    // Trigger Install
-                    txt.text = "Installing...";
-                    btn.interactable = false;
-                    
-                     string url = pkg.latest.download_url;
-                     string zipName = $"{pkg.name}.zip";
-                     string tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), zipName);
-                     
-                     RoosterPlugin.Instance.StartCoroutine(UpdateDownloader.DownloadFile(url, tempPath, (success, err) => {
-                         if (success)
-                         {
-                             UpdateInstaller.InstallPackage(tempPath, pkg.name, (installSuccess, installErr) => {
-                                 if (installSuccess)
-                                 {
-                                     txt.text = "Installed!";
-                                     btnImg.color = Color.gray;
-                                 }
-                                 else
-                                 {
-                                     txt.text = "Error";
-                                     RoosterPlugin.LogError("Install error: " + installErr);
-                                 }
-                             });
-                         }
-                         else
-                         {
-                             txt.text = "Failed";
-                             btn.interactable = true;
-                         }
-                     }));
-                });
-            }
-            
-            // Back Button Override
-            // We need to hook into the main back button to close DETAILS and go back to LIST
-             _currentModal.okButton.OnClick.RemoveAllListeners();
-             _currentModal.okButton.OnClick.AddListener((cursor) => {
-                 UnityEngine.Object.Destroy(detailsObj);
-                 _viewportObj.SetActive(true);
-                 if (_scrollbarObj != null) _scrollbarObj.SetActive(true);
-                  foreach(var b in _itemButtons) b.SetActive(true);
-                  
-                  // Restore original back listener
-                 _currentModal.okButton.OnClick.RemoveAllListeners();
-                 _currentModal.okButton.OnClick.AddListener((c) => {
-                     Close();
-                     ModMenuUI.ShowModMenu();
-                 });
-             });
-        }
-        
-        private static void AddText(Transform parent, string content, int fontSize, bool bold, Color color)
-        {
-            var obj = new GameObject("Text", typeof(RectTransform));
-            obj.transform.SetParent(parent, false);
-            var txt = obj.AddComponent<Text>();
-            txt.text = bold ? $"<b>{content}</b>" : content;
-            txt.supportRichText = true;
-            txt.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-            txt.fontSize = fontSize;
-            txt.color = color;
-            txt.horizontalOverflow = HorizontalWrapMode.Wrap;
-            txt.verticalOverflow = VerticalWrapMode.Overflow; 
-            
-            // layout
-            var layout = obj.AddComponent<LayoutElement>();
-            layout.preferredHeight = fontSize + 10;
-            layout.flexibleWidth = 1;
-        }
-
         public static void DestroyUI(TabletModalOverlay modal)
         {
             if (_viewportObj != null) UnityEngine.Object.Destroy(_viewportObj);
             _viewportObj = null;
-             if (_scrollbarObj != null) UnityEngine.Object.Destroy(_scrollbarObj);
+            if (_scrollbarObj != null) UnityEngine.Object.Destroy(_scrollbarObj);
             _scrollbarObj = null;
-            foreach(var b in _itemButtons) if(b!=null) UnityEngine.Object.Destroy(b);
+            foreach (var b in _itemButtons) if (b != null) UnityEngine.Object.Destroy(b);
             _itemButtons.Clear();
             _refreshButton = null;
-            
+            _scrollRect = null;
+
             if (modal != null && _originalSize.HasValue)
             {
                 var container = modal.simpleMessageContainer;
-                 if (container != null)
-                 {
-                      container.GetComponent<RectTransform>().sizeDelta = _originalSize.Value;
-                      modal.simpleMessageText.gameObject.SetActive(true);
-                 }
+                if (container != null)
+                {
+                    container.GetComponent<RectTransform>().sizeDelta = _originalSize.Value;
+                    modal.simpleMessageText.gameObject.SetActive(true);
+                }
                 _originalSize = null;
             }
+            
+            ModDetailsUI.CleanupCustomUI();
         }
     }
 }
