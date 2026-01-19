@@ -520,6 +520,7 @@ namespace Rooster.Services
                      },
                      categories = new List<string> { "GitHub" }
                  });
+                 RoosterPlugin.LogInfo($"[DEBUG] Discovered GitHub Asset: {modName} -> {packages[packages.Count-1].full_name}");
              }
         }
 

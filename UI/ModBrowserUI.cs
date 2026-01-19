@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using Rooster.Models;
 using BepInEx;
 using Rooster.Services;
+using Rooster.UI.Components;
 
 namespace Rooster.UI
 {
@@ -22,11 +23,11 @@ namespace Rooster.UI
         private static List<ThunderstorePackage> _curatedMods = new List<ThunderstorePackage>();
         private static bool _isThunderstoreTab = true;
         
-        // Caching the modal for refreshing
         private static TabletModalOverlay _currentModal;
-        private static TabletButton _refreshButton;
-        private static TabletTextLabel _refreshLabel;
-        private static GameObject _loadingSpinner;
+        private static TabletButton _buttonTemplate;
+        
+        // New Component System
+        private static BrowserTabSystem _tabSystem;
 
         public static void SetVisible(bool visible)
         {
@@ -34,7 +35,8 @@ namespace Rooster.UI
             if (_scrollbarObj != null) _scrollbarObj.SetActive(visible);
             if (_scrollRect != null) _scrollRect.enabled = visible;
             foreach (var b in _itemButtons) if (b != null) b.SetActive(visible);
-            if (_refreshButton != null) _refreshButton.gameObject.SetActive(visible);
+            
+            if (_tabSystem != null) _tabSystem.SetVisible(visible);
         }
 
 
@@ -65,7 +67,7 @@ namespace Rooster.UI
             
             // Initial Fetch
             RoosterPlugin.Instance.StartCoroutine(FetchAndDisplay(false, preserveScroll));
-            SetVisible(true); // Ensure visible
+            SetVisible(true); 
         }
 
         private static void Close()
@@ -77,14 +79,7 @@ namespace Rooster.UI
         {
             RoosterPlugin.LogInfo($"ModBrowser: FetchAndDisplay Started (Force: {forceRefresh})");
             
-            if (_refreshButton != null) 
-            {
-                _refreshButton.SetInteractable(false);
-                _refreshButton.SetDisabled(true); 
-            }
-            
-            if (_refreshLabel != null) _refreshLabel.text = "";
-            if (_loadingSpinner != null) _loadingSpinner.SetActive(true);
+            if (_tabSystem != null) _tabSystem.SetRefreshState(true);
 
             if (forceRefresh)
             {
@@ -95,6 +90,19 @@ namespace Rooster.UI
             }
 
                 //  THUNDERSTORE FETCH
+                if (_thunderstoreMods.Count == 0 && UpdateChecker.CachedPackages.Count > 0)
+                {
+                    // Filter out GitHub packages from Thunderstore list
+                    _thunderstoreMods = new List<ThunderstorePackage>();
+                    foreach(var pkg in UpdateChecker.CachedPackages)
+                    {
+                        if (pkg.categories == null || !pkg.categories.Contains("GitHub"))
+                        {
+                            _thunderstoreMods.Add(pkg);
+                        }
+                    }
+                }
+
                 if (_thunderstoreMods.Count > 0 && !forceRefresh)
                 {
                      RoosterPlugin.LogInfo($"ModBrowser: Using cached Thunderstore list ({_thunderstoreMods.Count} items)");
@@ -121,14 +129,8 @@ namespace Rooster.UI
                     if (tsError != null)
                     {
                         ShowErrorModal($"Thunderstore Error:\n{tsError}");
-                        // Ensure we clean up even on error
                         HideLoading();
-                        if (_refreshButton != null) 
-                        {
-                            _refreshButton.SetInteractable(true);
-                            _refreshButton.SetDisabled(false);
-                        }
-                        if (_refreshLabel != null) _refreshLabel.text = "Refresh";
+                        if (_tabSystem != null) _tabSystem.SetRefreshState(false);
                         yield break;  
                     }
                 }
@@ -136,41 +138,22 @@ namespace Rooster.UI
              //  GITHUB FETCH
                 if (GitHubApi.IsCacheReady && !forceRefresh)
                 {
-                     // Using cached GitHub list
                      _curatedMods = new List<ThunderstorePackage>(GitHubApi.CachedPackages);
-                }
-                else if (_curatedMods.Count > 0 && !forceRefresh)
-                {
-                     // Using local GitHub list
                 }
                 else
                 {
-                    bool ghComplete = false;
-                    string ghError = null;
+                    // Use BuildCache to leverage disk cache logic
+                    yield return GitHubApi.BuildCache();
                     
-                    RoosterPlugin.Instance.StartCoroutine(GitHubApi.FetchCuratedList((packages, error) => {
-                        if (error != null) ghError = error;
-                        else 
-                        {
-                            _curatedMods = packages;
-                            GitHubApi.CachedPackages = packages;
-                            GitHubApi.IsCacheReady = true; 
-                        }
-                        ghComplete = true;
-                    }));
-                    
-                    float ghTimeout = UnityEngine.Time.realtimeSinceStartup + 45f;
-                    yield return new WaitUntil(() => ghComplete || UnityEngine.Time.realtimeSinceStartup > ghTimeout);
-                    
-                    if (!ghComplete)
+                    if (GitHubApi.IsCacheReady)
                     {
-                         ghError = "Request timed out.";
-                         RoosterPlugin.LogWarning("ModBrowser: GitHub fetch timed out.");
+                        _curatedMods = new List<ThunderstorePackage>(GitHubApi.CachedPackages);
                     }
-                    
-                    if (ghError != null)
+                    else
                     {
-                        ShowErrorModal($"GitHub Error:\n{ghError}");
+                        string ghError = GitHubApi.LastError ?? "Unknown Error";
+                         RoosterPlugin.LogWarning($"ModBrowser: GitHub fetch failed: {ghError}");
+                         ShowErrorModal($"GitHub Error:\n{ghError}");
                     }
                 }
             
@@ -195,24 +178,18 @@ namespace Rooster.UI
             }
             
             HideLoading();
-            if (_refreshButton != null) 
-            {
-                _refreshButton.SetInteractable(true);
-                _refreshButton.SetDisabled(false);
-            }
-            if (_refreshLabel != null) _refreshLabel.text = "Refresh";
+            if (_tabSystem != null) _tabSystem.SetRefreshState(false);
         }
 
         private static void HideLoading()
         {
             if (_currentModal != null && _currentModal.simpleMessageText != null) 
             _currentModal.simpleMessageText.gameObject.SetActive(false);
-            
-            if (_loadingSpinner != null) _loadingSpinner.SetActive(false);
         }
         
         private static void ShowErrorModal(string message)
         {
+             // Simplified for brevity, logic remains or can be extracted too
              RoosterPlugin.LogError("Showing Error Modal: " + message);
              if (_currentModal == null) return;
              
@@ -278,170 +255,42 @@ namespace Rooster.UI
             var fitter = contentObj.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             
-            CreateTabs(container);
-
-            // Hide default text
-            modal.simpleMessageText.gameObject.SetActive(false);
-        }
-
-        private static void CreateTabs(Transform parent)
-        {
-            CreateTabButton(parent, "Thunderstore", -315, () => {
+            // Initialize Tab System
+            _tabSystem = new BrowserTabSystem(_buttonTemplate);
+            _tabSystem.OnRefreshClicked += () => RoosterPlugin.Instance.StartCoroutine(FetchAndDisplay(true));
+            _tabSystem.OnThunderstoreTabClicked += () => 
+            {
                 if (!_isThunderstoreTab) {
                     _isThunderstoreTab = true;
                     RefreshList();
-                    if (_currentModal != null && _currentModal.simpleMessageText != null)
-                        _currentModal.simpleMessageText.gameObject.SetActive(false);
+                    UpdateTitle(modal);
                 }
-            }, UIHelpers.Themes.Action);
-
-            CreateTabButton(parent, "GitHub", 15, () => {
+            };
+            _tabSystem.OnGitHubTabClicked += () => 
+            {
                 if (_isThunderstoreTab) {
                     _isThunderstoreTab = false;
                     RefreshList();
-                    if (_currentModal != null && _currentModal.simpleMessageText != null)
-                        _currentModal.simpleMessageText.gameObject.SetActive(false);
+                    UpdateTitle(modal);
                 }
-            }, UIHelpers.Themes.Neutral);
-            
-            CreateRefreshButton(parent);
+            };
+
+            _tabSystem.CreateTabs(container, _isThunderstoreTab);
+            UpdateTitle(modal);
         }
-        
-        private static void CreateRefreshButton(Transform parent)
+
+        private static void UpdateTitle(TabletModalOverlay modal)
         {
-            if (_buttonTemplate == null) return;
-            
-            var btnObj = UnityEngine.Object.Instantiate(_buttonTemplate.gameObject, parent);
-            btnObj.name = "RefreshButton";
+             if (modal == null) return;
              
-            var rect = btnObj.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 1);
-            rect.anchorMax = new Vector2(0.5f, 1);
-            rect.pivot = new Vector2(0.5f, 1);     
-            rect.sizeDelta = new Vector2(200, 80); 
-            rect.anchoredPosition = new Vector2(300, -10); // Far Right Spot, Center Anchor
-
-            var label = btnObj.GetComponentInChildren<TabletTextLabel>();
-             if (label != null)
-            {
-                _refreshLabel = label;
-                label.text = "Refresh";
-                label.transform.localScale = new Vector3(0.4f, 0.4f, 1f);
-                label.labelType = TabletTextLabel.LabelType.Normal;
-                
-                var t = label.GetComponent<Text>();
-                if (t != null)
-                {
-                    t.horizontalOverflow = HorizontalWrapMode.Overflow;
-                    t.verticalOverflow = VerticalWrapMode.Overflow;
-                }
-                
-                // Fix layout - ensure matches parent size
-                var lblRect = label.GetComponent<RectTransform>();
-                if (lblRect != null)
-                {
-                    lblRect.anchorMin = Vector2.zero;
-                    lblRect.anchorMax = Vector2.one;
-                    lblRect.sizeDelta = Vector2.zero;
-                    lblRect.anchoredPosition = Vector2.zero;
-                }
-            }
-
-            var tabletBtn = btnObj.GetComponent<TabletButton>();
-            if (tabletBtn != null)
-            {
-                  UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Warning);
-                  
-                  tabletBtn.OnClick = new TabletButtonEvent();
-                  tabletBtn.OnClick.AddListener((cursor) => {
-                      // Trigger Refresh
-                      RoosterPlugin.Instance.StartCoroutine(FetchAndDisplay(true));
-                  });
-                  tabletBtn.SetDisabled(false);
-                  tabletBtn.SetInteractable(true);
-                  tabletBtn.buttonType = TabletButton.ButtonType.Simple;
-                  tabletBtn.ResetStyles();
-                  
-                  _refreshButton = tabletBtn;
-            }
-            
-            var le = btnObj.GetComponent<LayoutElement>();
-            if (le != null) UnityEngine.Object.Destroy(le);
-            
-            _itemButtons.Add(btnObj); 
-            
-            GameObject playOnline = GameObject.Find("main Buttons/Play Online");
-            if (playOnline != null)
-            {
-                var originalSpinner = playOnline.transform.Find("LoadingSpinner");
-                if (originalSpinner != null)
-                {
-                    _loadingSpinner = UnityEngine.Object.Instantiate(originalSpinner.gameObject, btnObj.transform);
-                    _loadingSpinner.name = "RefreshSpinner";
-                    _loadingSpinner.SetActive(false);
-                    
-                    var spinRect = _loadingSpinner.GetComponent<RectTransform>();
-                    if (spinRect != null)
-                    {
-                        spinRect.anchorMin = new Vector2(0.5f, 0.5f);
-                        spinRect.anchorMax = new Vector2(0.5f, 0.5f);
-                        spinRect.pivot = new Vector2(0.5f, 0.5f);
-                        spinRect.anchoredPosition = Vector2.zero;
-                        _loadingSpinner.transform.localScale = new Vector3(0.375f, 0.375f, 1f);
-                    }
-                }
-            }
-        }
-        
-        private static void CreateTabButton(Transform parent, string text, float xOffset, Action onClick, UIHelpers.ButtonTheme theme)
-        {
-            if (_buttonTemplate == null) return;
-
-            var btnObj = UnityEngine.Object.Instantiate(_buttonTemplate.gameObject, parent);
-            btnObj.name = "Tab_" + text;
-             
-            var rect = btnObj.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 1);
-            rect.anchorMax = new Vector2(0.5f, 1);
-            rect.pivot = new Vector2(0.5f, 1);
-            rect.sizeDelta = new Vector2(300, 80); // Slightly smaller to fit refresh
-            rect.anchoredPosition = new Vector2(xOffset, -10);
-
-            var label = btnObj.GetComponentInChildren<TabletTextLabel>();
-             if (label != null)
-            {
-                label.text = text;
-                label.transform.localScale = new Vector3(0.5f, 0.5f, 1f); // Smaller text
-                label.labelType = TabletTextLabel.LabelType.Normal;
-                
-                var t = label.GetComponent<Text>();
-                if (t != null) 
-                {
-                    t.horizontalOverflow = HorizontalWrapMode.Overflow;
-                    t.verticalOverflow = VerticalWrapMode.Overflow;
-                }
-            }
-
-            var tabletBtn = btnObj.GetComponent<TabletButton>();
-            if (tabletBtn != null)
-            {
-                 UIHelpers.ApplyTheme(tabletBtn, theme);
-                 
-                 tabletBtn.OnClick = new TabletButtonEvent();
-                 tabletBtn.OnClick.AddListener((cursor) => {
-                     RoosterPlugin.LogInfo($"Tab Clicked: {text}");
-                     onClick();
-                 });
-                 tabletBtn.SetDisabled(false);
-                 tabletBtn.SetInteractable(true);
-                 tabletBtn.buttonType = TabletButton.ButtonType.Simple;
-                 tabletBtn.ResetStyles();
-            }
-            
-            var le = btnObj.GetComponent<LayoutElement>();
-            if (le != null) UnityEngine.Object.Destroy(le);
-            
-            _itemButtons.Add(btnObj); 
+             if (modal.titleText != null)
+             {
+                 modal.titleText.text = _isThunderstoreTab ? "Thunderstore Browser" : "GitHub Browser";
+             }
+             if (modal.simpleMessageText != null)
+             {
+                 modal.simpleMessageText.gameObject.SetActive(false);
+             }
         }
 
         private static void RefreshList()
@@ -462,85 +311,30 @@ namespace Rooster.UI
             
             foreach(var pkg in list)
             {
-                CreatePackageItem(contentRect, pkg);
+                var item = ModListItem.Create(_buttonTemplate, contentRect, pkg, (p) => {
+                    if (_scrollRect != null) _lastScrollPos = _scrollRect.verticalNormalizedPosition;
+                    ModDetailsUI.ShowDetails(p);
+                });
+                
+                if (item != null) _itemButtons.Add(item);
             }
             
             Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
-        }
-
-        private static TabletButton _buttonTemplate;
-
-        private static void CreatePackageItem(RectTransform parent, ThunderstorePackage pkg)
-        {
-            if (_buttonTemplate == null) return;
             
-            var btnObj = UnityEngine.Object.Instantiate(_buttonTemplate.gameObject, parent);
-            btnObj.name = "Pkg_" + pkg.name;
-            
-            var label = btnObj.GetComponentInChildren<TabletTextLabel>();
-            if (label != null)
+            // Fix for scrollbar handle vanishing - force visual refresh
+            if (_scrollbarObj != null)
             {
-                string categoryStr = (pkg.categories != null && pkg.categories.Count > 0) 
-                                     ? string.Join(", ", pkg.categories) 
-                                     : "Mod";
-                                     
-                label.text = $"{pkg.name.Replace('_', ' ')} v{pkg.latest.version_number}\n<i><size=18>{categoryStr}</size></i>";
+                _scrollbarObj.SetActive(false);
+                _scrollbarObj.SetActive(true);
                 
-                label.labelType = TabletTextLabel.LabelType.SmallText;
-                
-                var uiText = label.GetComponent<Text>();
-                if (uiText != null) 
+                var sb = _scrollbarObj.GetComponent<Scrollbar>();
+                if (sb != null) 
                 {
-                    uiText.supportRichText = true;
-                    // Ensure text can wrap if categories are long, or just let it overflow? 
-                    // Usually buttons have limited height. 
-                    // Let's force it to allow vertical overflow so the second line shows even if the button is tight.
-                    uiText.verticalOverflow = VerticalWrapMode.Overflow; 
+                    sb.value = 1f; 
+                    sb.size = 0.5f; 
                 }
             }
-            
-            var tabletBtn = btnObj.GetComponent<TabletButton>();
-            if (tabletBtn != null)
-            {
-                if (tabletBtn.colorScheme == null) tabletBtn.colorScheme = _buttonTemplate.colorScheme;
-                
-                tabletBtn.OnClick = new TabletButtonEvent();
-                tabletBtn.OnClick.AddListener((cursor) => {
-                    if (_scrollRect != null) _lastScrollPos = _scrollRect.verticalNormalizedPosition;
-                    ModDetailsUI.ShowDetails(pkg);
-                });
-                tabletBtn.SetDisabled(false);
-                tabletBtn.SetInteractable(true);
-                tabletBtn.ResetStyles();
-                
-                // Check installation status
-                bool isInstalled = UpdateChecker.IsPackageInstalled(pkg.full_name);
-                
-                UIHelpers.ButtonTheme theme;
-                
-                if (isInstalled)
-                {
-                    theme = UIHelpers.Themes.Success;
-                }
-                else if (UpdateChecker.PendingInstalls.Contains(pkg.full_name))
-                {
-                    theme = UIHelpers.Themes.Warning;
-                }
-                else
-                {
-                    theme = UIHelpers.Themes.Neutral;
-                }
-                
-                UIHelpers.ApplyTheme(tabletBtn, theme);
-             }
-
-             var le = btnObj.GetComponent<LayoutElement>() ?? btnObj.AddComponent<LayoutElement>();
-             le.preferredHeight = 70f;
-             le.flexibleWidth = 1f;
-             le.minHeight = 70f;
-             
-             btnObj.SetActive(true);
         }
 
         public static void DestroyUI(TabletModalOverlay modal)
@@ -551,8 +345,8 @@ namespace Rooster.UI
             _scrollbarObj = null;
             foreach (var b in _itemButtons) if (b != null) UnityEngine.Object.Destroy(b);
             _itemButtons.Clear();
-            _refreshButton = null;
             _scrollRect = null;
+            _tabSystem = null; // Clear ref
 
             if (modal != null && _originalSize.HasValue)
             {

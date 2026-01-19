@@ -106,22 +106,27 @@ namespace Rooster.Services
             HashSet<string> localTokens = Tokenize(localName);
             HashSet<string> remoteTokens = Tokenize(tsName);
             
-            if (remoteTokens.Count > 1 && localTokens.Count > remoteTokens.Count)
+            if (localTokens.Count > 0 && remoteTokens.Count > 0)
             {
-                // Verify all remote tokens exist in local tokens
-                bool allRemoteInLocal = true;
+                int shared = 0;
                 foreach(var rt in remoteTokens)
                 {
-                    if (!localTokens.Contains(rt))
-                    {
-                        allRemoteInLocal = false;
-                        break;
-                    }
+                    if (localTokens.Contains(rt)) shared++;
                 }
+
+                float overlap = (float)shared / Math.Max(localTokens.Count, remoteTokens.Count);
                 
-                if (allRemoteInLocal) 
+                if (overlap >= 0.8f) // High overlap (e.g. UCHTeams vs TeamsUCH)
                 {
-                    report.AddScore("All Thunderstore tokens found in Plugin Name", 65);
+                    report.AddScore($"High Token Overlap ({overlap:P0})", 75);
+                }
+                else if (overlap >= 0.5f) // Moderate overlap
+                {
+                     // Requires at least 2 tokens to match to be safe?
+                     if (shared >= 2 || (shared == 1 && Math.Max(localTokens.Count, remoteTokens.Count) <= 2))
+                     {
+                        report.AddScore($"Moderate Token Overlap ({overlap:P0})", 55);
+                     }
                 }
             }
 

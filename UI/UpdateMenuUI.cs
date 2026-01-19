@@ -49,7 +49,8 @@ namespace Rooster.UI
             var container = modal.simpleMessageContainer;
             if (container == null) return;
 
-            UIHelpers.CleanContainer(container.gameObject);
+            var textObj = modal.simpleMessageText != null ? modal.simpleMessageText.gameObject : null;
+            UIHelpers.CleanContainer(container.gameObject, textObj);
 
             var layout = UIHelpers.CreateScrollLayout(container.gameObject, "UpdateMenu", 20, 100, 20, 60, 10);
             
@@ -179,7 +180,7 @@ namespace Rooster.UI
                 
                 UpdateChecker.UpdateAll(
                     (info, status) => { 
-                        if (_statusLabels.TryGetValue(info, out var label))
+                        if (info != null && _statusLabels.TryGetValue(info, out var label))
                         {
                             label.text = status;
                             if (status == "Ready") label.color = UIHelpers.Themes.Success.Normal;
