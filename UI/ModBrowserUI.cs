@@ -21,10 +21,10 @@ namespace Rooster.UI
         private static bool _isThunderstoreTab = true;
         
         // Caching the modal for refreshing
-        // Caching the modal for refreshing
         private static TabletModalOverlay _currentModal;
-        private static TabletButton _refreshButton; // Keep reference to disable during load
+        private static TabletButton _refreshButton;
         private static TabletTextLabel _refreshLabel;
+        private static GameObject _loadingSpinner;
 
 
         public static void ShowModBrowser()
@@ -73,8 +73,14 @@ namespace Rooster.UI
         {
             RoosterPlugin.LogInfo($"ModBrowser: FetchAndDisplay Started (Force: {forceRefresh})");
             
-            if (_refreshButton != null) _refreshButton.SetInteractable(false);
-            if (_refreshLabel != null) _refreshLabel.text = "Refreshing...";
+            if (_refreshButton != null) 
+            {
+                _refreshButton.SetInteractable(false);
+                _refreshButton.SetDisabled(true); 
+            }
+            if (_refreshLabel != null) _refreshLabel.text = ""; // Hide text for spinner
+            if (_loadingSpinner != null) _loadingSpinner.SetActive(true);
+
 
             
             // Loading Indicator removed per user request
@@ -119,7 +125,11 @@ namespace Rooster.UI
                         ShowErrorModal($"Thunderstore Error:\n{tsError}");
                         // Ensure we clean up even on error
                         HideLoading();
-                        if (_refreshButton != null) _refreshButton.SetInteractable(true);
+                        if (_refreshButton != null) 
+                        {
+                            _refreshButton.SetInteractable(true);
+                            _refreshButton.SetDisabled(false);
+                        }
                         if (_refreshLabel != null) _refreshLabel.text = "Refresh";
                         yield break;  
                     }
@@ -177,16 +187,21 @@ namespace Rooster.UI
             }
             
             HideLoading();
-            HideLoading();
-            if (_refreshButton != null) _refreshButton.SetInteractable(true);
+            if (_refreshButton != null) 
+            {
+                _refreshButton.SetInteractable(true);
+                _refreshButton.SetDisabled(false);
+            }
             if (_refreshLabel != null) _refreshLabel.text = "Refresh";
         }
 
         private static void HideLoading()
         {
-             RoosterPlugin.LogInfo("ModBrowser: Hiding loading text.");
+             RoosterPlugin.LogInfo("ModBrowser: Hiding loading text/spinner.");
              if (_currentModal != null && _currentModal.simpleMessageText != null) 
                 _currentModal.simpleMessageText.gameObject.SetActive(false);
+                
+             if (_loadingSpinner != null) _loadingSpinner.SetActive(false);
         }
         
         private static void ShowErrorModal(string message)
@@ -368,6 +383,29 @@ namespace Rooster.UI
             if (le != null) UnityEngine.Object.Destroy(le);
             
             _itemButtons.Add(btnObj); 
+            
+            // Try clone loading spinner
+            // "main Buttons" is usually at top level when searching or via TabletMainMenuHome
+            GameObject playOnline = GameObject.Find("main Buttons/Play Online");
+            if (playOnline != null)
+            {
+                var originalSpinner = playOnline.transform.Find("LoadingSpinner");
+                if (originalSpinner != null)
+                {
+                    _loadingSpinner = UnityEngine.Object.Instantiate(originalSpinner.gameObject, btnObj.transform);
+                    _loadingSpinner.name = "RefreshSpinner";
+                    _loadingSpinner.SetActive(false);
+                    
+                    var spinRect = _loadingSpinner.GetComponent<RectTransform>();
+                    if (spinRect != null)
+                    {
+                        spinRect.anchorMin = new Vector2(0.5f, 0.5f);
+                        spinRect.anchorMax = new Vector2(0.5f, 0.5f);
+                        spinRect.pivot = new Vector2(0.5f, 0.5f);
+                        spinRect.anchoredPosition = Vector2.zero;
+                    }
+                }
+            }
         }
         
         private static void CreateTabButton(Transform parent, string text, float xOffset, Action onClick, bool active)
