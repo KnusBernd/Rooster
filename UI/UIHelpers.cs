@@ -336,7 +336,9 @@ namespace Rooster.UI
             modal.okButton.OnClick.AddListener((cursor) => onBack?.Invoke());
 
             // 3. Clean Container
-            CleanContainer(modal.simpleMessageContainer.gameObject);
+            // Preserve the simpleMessageText if it happens to be inside this container
+            var textObj = modal.simpleMessageText != null ? modal.simpleMessageText.gameObject : null;
+            CleanContainer(modal.simpleMessageContainer.gameObject, textObj);
 
             // 4. Setup Container Styling
             var container = modal.simpleMessageContainer;
@@ -348,8 +350,18 @@ namespace Rooster.UI
             bgImg.raycastTarget = true;
         }
 
-        public static void CleanContainer(GameObject container)
+        public static void CleanContainer(GameObject container, GameObject exclude = null)
         {
+            // Destroy all child objects (buttons, rows, etc.)
+            // Destroy all child objects safely (reverse loop)
+            int childCount = container.transform.childCount;
+            for (int i = childCount - 1; i >= 0; i--)
+            {
+                var child = container.transform.GetChild(i).gameObject;
+                if (exclude != null && child == exclude) continue;
+                UnityEngine.Object.DestroyImmediate(child);
+            }
+
             // Remove layouts
             foreach(var layout in container.GetComponents<LayoutGroup>())
                 UnityEngine.Object.DestroyImmediate(layout);
@@ -369,6 +381,235 @@ namespace Rooster.UI
             le.minHeight = 100f;
             le.flexibleWidth = 0f;
             le.flexibleHeight = 0f;
+        }
+        public static void CreateToggleRow(Transform parent, TabletModalOverlay modal, string labelText,
+            bool initialValue, Action<bool> onToggle, 
+            out TabletButton onBtn, out TabletButton offBtn)
+        {
+            int layer = parent.gameObject.layer;
+
+            var rowObj = new GameObject($"Row_{labelText.Replace(" ", "")}", typeof(RectTransform));
+            rowObj.layer = layer;
+            rowObj.transform.SetParent(parent, false);
+            
+            var rowRect = rowObj.GetComponent<RectTransform>();
+            rowRect.sizeDelta = new Vector2(700, 70);
+
+            var hLayout = rowObj.AddComponent<HorizontalLayoutGroup>();
+            hLayout.childAlignment = TextAnchor.MiddleCenter;
+            hLayout.spacing = 20f;
+            hLayout.childForceExpandWidth = false;
+            hLayout.childForceExpandHeight = false;
+
+            var rowLE = rowObj.AddComponent<LayoutElement>();
+            rowLE.preferredHeight = 70f;
+            rowLE.flexibleWidth = 1f;
+
+            var labelObj = UnityEngine.Object.Instantiate(modal.titleText.gameObject, rowObj.transform);
+            labelObj.name = "Label";
+            labelObj.transform.localScale = Vector3.one;
+            
+            var labelTxt = labelObj.GetComponent<TabletTextLabel>();
+            if (labelTxt != null)
+            {
+                labelTxt.text = labelText;
+                labelTxt.labelType = TabletTextLabel.LabelType.Normal;
+            }
+
+            var labelLE = labelObj.GetComponent<LayoutElement>() ?? labelObj.AddComponent<LayoutElement>();
+            labelLE.preferredWidth = 350f;
+            labelLE.flexibleWidth = 1f;
+
+            TabletButton btnOnLocal = null;
+            TabletButton btnOffLocal = null;
+
+            var onBtnObj = UnityEngine.Object.Instantiate(modal.onButton.gameObject, rowObj.transform);
+            onBtnObj.name = "OnBtn";
+            onBtnObj.transform.localScale = Vector3.one;
+            
+            btnOnLocal = onBtnObj.GetComponent<TabletButton>();
+            if (btnOnLocal != null)
+            {
+                var onLabel = onBtnObj.GetComponentInChildren<TabletTextLabel>();
+                if (onLabel != null) 
+                {
+                    onLabel.text = "On";
+                    onLabel.transform.localScale = new Vector3(0.6f, 0.6f, 1f);
+                    
+                    var txt = onLabel.GetComponent<Text>();
+                    if (txt != null)
+                    {
+                        txt.horizontalOverflow = HorizontalWrapMode.Overflow;
+                        txt.verticalOverflow = VerticalWrapMode.Overflow;
+                        txt.alignment = TextAnchor.MiddleCenter;
+                    }
+                }
+                
+                btnOnLocal.OnClick = new TabletButtonEvent();
+                // We will re-add listener later to capture correct chain
+                btnOnLocal.SetDisabled(false);
+                btnOnLocal.SetInteractable(true);
+            }
+
+            var onLE = onBtnObj.GetComponent<LayoutElement>() ?? onBtnObj.AddComponent<LayoutElement>();
+            onLE.preferredWidth = 120f;
+            onLE.preferredHeight = 70f;
+            onLE.minWidth = 120f;
+            onLE.minHeight = 70f;
+
+            var offBtnObj = UnityEngine.Object.Instantiate(modal.offButton.gameObject, rowObj.transform);
+            offBtnObj.name = "OffBtn";
+            offBtnObj.transform.localScale = Vector3.one;
+            
+            btnOffLocal = offBtnObj.GetComponent<TabletButton>();
+            if (btnOffLocal != null)
+            {
+                var offLabel = offBtnObj.GetComponentInChildren<TabletTextLabel>();
+                if (offLabel != null)
+                {
+                    offLabel.text = "Off";
+                    offLabel.transform.localScale = new Vector3(0.6f, 0.6f, 1f);
+
+                    var txt = offLabel.GetComponent<Text>();
+                    if (txt != null)
+                    {
+                        txt.horizontalOverflow = HorizontalWrapMode.Overflow;
+                        txt.verticalOverflow = VerticalWrapMode.Overflow;
+                        txt.alignment = TextAnchor.MiddleCenter;
+                    }
+                }
+                
+                btnOffLocal.OnClick = new TabletButtonEvent();
+                // We will re-add listener later to capture correct chain
+                btnOffLocal.SetDisabled(false);
+                btnOffLocal.SetInteractable(true);
+            }
+
+            var offLE = offBtnObj.GetComponent<LayoutElement>() ?? offBtnObj.AddComponent<LayoutElement>();
+            offLE.preferredWidth = 120f;
+            offLE.preferredHeight = 70f;
+            offLE.minWidth = 120f;
+            offLE.minHeight = 70f;
+
+            onBtnObj.SetActive(true);
+            offBtnObj.SetActive(true);
+
+            // Assign out parameters now that objects are created
+            onBtn = btnOnLocal;
+            offBtn = btnOffLocal;
+
+            // Use Local variables for Lambda Capture to avoid CS1628
+            TabletButton capOn = btnOnLocal;
+            TabletButton capOff = btnOffLocal;
+
+            Action<bool> updateStyles = (isOn) => {
+                 if (capOn != null)
+                 {
+                    capOn.buttonType = isOn ? TabletButton.ButtonType.Simple : TabletButton.ButtonType.Transparent;
+                    capOn.ResetStyles();
+                 }
+                 if (capOff != null)
+                 {
+                    capOff.buttonType = isOn ? TabletButton.ButtonType.Transparent : TabletButton.ButtonType.Simple;
+                    capOff.ResetStyles();
+                 }
+            };
+            
+            Action<bool> chainToggle = onToggle;
+            Action<bool> wrapperToggle = (val) => {
+                updateStyles(val);
+                chainToggle(val);
+            };
+            
+            // Re-bind listeners with style update
+            if (capOn != null)
+            {
+                capOn.OnClick.AddListener((c) => wrapperToggle(true));
+            }
+            if (capOff != null)
+            {
+                capOff.OnClick.AddListener((c) => wrapperToggle(false));
+            }
+
+            // Assign the wrapper back to onToggle if caller needs it? 
+            // The signature is Action<bool> onToggle (input), we don't return it.
+            // But we already hooked up the listeners to call the wrapper.
+            // But we DID mutate the input parameter 'onToggle' in previous code: `onToggle = (val) => ...`
+            // Modifying the input parameter locally doesn't affect the caller unless it's ref. 
+            // The previous code `onToggle = ...` was only effective for subsequent uses INSIDE this method if any.
+            // But there were none. The listeners were hooked up to the NEW `onToggle` lambda.
+            
+            updateStyles(initialValue);
+        }
+
+        public static void ShowUninstallConfirmation(TabletModalOverlay modal, BepInEx.PluginInfo plugin, GameObject toHide, Action onCancelled, Action<bool> onConfirmed)
+        {
+            if (toHide != null) toHide.SetActive(false);
+
+            var scope = Services.ModUninstaller.GetUninstallScope(plugin);
+            string title = "Confirm Uninstall";
+            string desc = "";
+            bool deleteConfig = true;
+
+            switch (scope)
+            {
+                case Services.UninstallScope.Manual:
+                    desc = "This mod was installed manually. Rooster will attempt to remove the DLL and its configuration.";
+                    break;
+                case Services.UninstallScope.Discovered:
+                    desc = "This mod was discovered locally but lacks metadata. Rooster will attempt to remove the DLL and its configuration.";
+                    break;
+                case Services.UninstallScope.Tracked:
+                    desc = "This mod is fully managed. Rooster will remove all associated files in its folder and its configuration.";
+                    break;
+            }
+
+            SetupModal(modal, new Vector2(1000, 700), title, () => {
+                if (toHide != null) toHide.SetActive(true);
+                onCancelled?.Invoke();
+            });
+
+            var container = modal.simpleMessageContainer;
+            var layout = container.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.spacing = 30f;
+            layout.padding = new RectOffset(40, 40, 20, 20);
+
+            // Description UI
+            var descObj = UnityEngine.Object.Instantiate(modal.simpleMessageText.gameObject, container.transform);
+            descObj.SetActive(true);
+            var descTxt = descObj.GetComponent<Text>();
+            descTxt.text = desc;
+            descTxt.fontSize = 28;
+            descTxt.alignment = TextAnchor.MiddleCenter;
+            var descLE = descObj.GetComponent<LayoutElement>() ?? descObj.AddComponent<LayoutElement>();
+            descLE.preferredHeight = 150f;
+
+            // Toggle Config UI
+            TabletButton onB, offB;
+            CreateToggleRow(container.GetComponent<RectTransform>(), modal, "Delete Configuration", deleteConfig, (val) => {
+                deleteConfig = val;
+            }, out onB, out offB);
+
+            // Action Row
+            var actionRow = new GameObject("ActionRow", typeof(RectTransform));
+            actionRow.transform.SetParent(container.transform, false);
+            var actionLayout = actionRow.AddComponent<HorizontalLayoutGroup>();
+            actionLayout.spacing = 40f;
+            actionLayout.childAlignment = TextAnchor.MiddleCenter;
+            actionLayout.childForceExpandWidth = false;
+
+            var confirmBtn = CreateButton(actionRow.transform, modal.okButton, "Confirm Uninstall", 400, 80);
+            ApplyTheme(confirmBtn, Themes.Danger);
+            confirmBtn.OnClick = new TabletButtonEvent();
+            confirmBtn.OnClick.AddListener((c) => onConfirmed?.Invoke(deleteConfig));
+
+            var cancelBtn = CreateButton(actionRow.transform, modal.okButton, "Cancel", 400, 80);
+            cancelBtn.OnClick = new TabletButtonEvent();
+            cancelBtn.OnClick.AddListener((c) => {
+                if (toHide != null) toHide.SetActive(true);
+                onCancelled?.Invoke();
+            });
         }
     }
 }

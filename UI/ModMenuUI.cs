@@ -72,37 +72,23 @@ namespace Rooster.UI
             DestroyUI(modal);
 
             var container = modal.simpleMessageContainer;
-            if (container == null) return;
-            var containerRect = container.GetComponent<RectTransform>();
-
-            if (!_originalSize.HasValue)
+            if (container == null) 
             {
-                _originalSize = containerRect.sizeDelta;
+                RoosterPlugin.LogError("ApplyStyling: Container is null");
+                return;
             }
 
-            UIHelpers.CleanContainer(container.gameObject);
-
-            foreach (var btn in _modButtons)
-            {
-                if (btn != null) UnityEngine.Object.DestroyImmediate(btn);
-            }
-            _modButtons.Clear();
-
-            modal.simpleMessageText.gameObject.SetActive(false); // Ensure hidden
+            var textObj = modal.simpleMessageText != null ? modal.simpleMessageText.gameObject : null;
+            UIHelpers.CleanContainer(container.gameObject, textObj);
 
             // Use unified ScrollLayout
-            // Top Margin: 80 (was -80 offsetMax)
-            // Bottom Margin: 100 (was 100 offsetMin)
-            // Side Margin: 0
-            // Scrollbar Width: 40
-            // Padding: 10
             var scrollLayout = UIHelpers.CreateScrollLayout(container.gameObject, "ModMenu", 80, 100, 0, 40, 10);
             
             _viewportObj = scrollLayout.Viewport.gameObject;
             _scrollbarObj = scrollLayout.ScrollbarObj;
             var contentRect = scrollLayout.Content;
-            var contentObj = contentRect.gameObject;
 
+            var contentObj = contentRect.gameObject;
             var layout = contentObj.AddComponent<VerticalLayoutGroup>();
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
@@ -115,13 +101,16 @@ namespace Rooster.UI
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
 
-            // Browse Button - Moved to bottom
-            CreateBrowseButton(containerRect);
+            // Browse Button
+            CreateBrowseButton(container.GetComponent<RectTransform>());
 
+            int count = 0;
             foreach (var plugin in Chainloader.PluginInfos.Values)
             {
                 CreateModButton(contentRect, plugin);
+                count++;
             }
+            RoosterPlugin.LogInfo($"ApplyStyling: Created {count} mod buttons");
 
             UnityEngine.Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
@@ -216,15 +205,49 @@ namespace Rooster.UI
             if (label != null)
             {
                 string displayName = plugin.Metadata.Name;
-                if (UpdateChecker.MatchedPackages.ContainsKey(plugin.Metadata.GUID))
+                string guid = plugin.Metadata.GUID;
+                string prefix = "";
+
+                // Prioritized Status Indicators
+                if (UpdateChecker.PendingUninstalls.Contains(guid))
                 {
-                    displayName = "<color=#00FF00>*</color> " + displayName;
+                    // Red Minus: Pending Uninstall
+                     prefix = "<color=#FF0000>-</color> ";
+                }
+                else if (UpdateChecker.PendingInstalls.Contains(guid))
+                {
+                     // Yellow Plus: Pending Install
+                     prefix = "<color=#FFFF00>+</color> ";
+                }
+                else 
+                {
+                    // Check for updates
+                    bool hasUpdate = false;
+                    foreach(var update in UpdateChecker.PendingUpdates)
+                    {
+                        if (update.PluginInfo.Metadata.GUID.Equals(guid, StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasUpdate = true;
+                            break;
+                        }
+                    }
+
+                    if (hasUpdate)
+                    {
+                        // Cyan Up Arrow: Update Available
+                        prefix = "<color=#00FFFF>↑</color> ";
+                    }
+                    else if (UpdateChecker.MatchedPackages.ContainsKey(guid))
+                    {
+                        // Green Asterisk: Matched
+                        prefix = "<color=#00FF00>*</color> ";
+                    }
                 }
                 
                 var uiText = label.GetComponent<Text>();
                 if (uiText != null) uiText.supportRichText = true;
 
-                label.text = $"{displayName} v{plugin.Metadata.Version}";
+                label.text = $"{prefix}{displayName} v{plugin.Metadata.Version}";
                 label.labelType = TabletTextLabel.LabelType.SmallText;
             }
 

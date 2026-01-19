@@ -257,7 +257,8 @@ namespace Rooster.UI
             
             if (!_originalSize.HasValue) _originalSize = container.GetComponent<RectTransform>().sizeDelta;
 
-            UIHelpers.CleanContainer(container.gameObject);
+            var textObj = modal.simpleMessageText != null ? modal.simpleMessageText.gameObject : null;
+            UIHelpers.CleanContainer(container.gameObject, textObj);
 
             var layout = UIHelpers.CreateScrollLayout(container.gameObject, "Browser", 120, 0, 25, 40, 10);
             
@@ -292,7 +293,7 @@ namespace Rooster.UI
                     if (_currentModal != null && _currentModal.simpleMessageText != null)
                         _currentModal.simpleMessageText.gameObject.SetActive(false);
                 }
-            }, _isThunderstoreTab);
+            }, UIHelpers.Themes.Action);
 
             CreateTabButton(parent, "GitHub", 15, () => {
                 if (_isThunderstoreTab) {
@@ -301,7 +302,7 @@ namespace Rooster.UI
                     if (_currentModal != null && _currentModal.simpleMessageText != null)
                         _currentModal.simpleMessageText.gameObject.SetActive(false);
                 }
-            }, !_isThunderstoreTab);
+            }, UIHelpers.Themes.Neutral);
             
             CreateRefreshButton(parent);
         }
@@ -392,7 +393,7 @@ namespace Rooster.UI
             }
         }
         
-        private static void CreateTabButton(Transform parent, string text, float xOffset, Action onClick, bool active)
+        private static void CreateTabButton(Transform parent, string text, float xOffset, Action onClick, UIHelpers.ButtonTheme theme)
         {
             if (_buttonTemplate == null) return;
 
@@ -424,7 +425,6 @@ namespace Rooster.UI
             var tabletBtn = btnObj.GetComponent<TabletButton>();
             if (tabletBtn != null)
             {
-                 var theme = active ? UIHelpers.Themes.Action : UIHelpers.Themes.Neutral;
                  UIHelpers.ApplyTheme(tabletBtn, theme);
                  
                  tabletBtn.OnClick = new TabletButtonEvent();

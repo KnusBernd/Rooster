@@ -19,7 +19,7 @@ namespace Rooster.Patches
 
             try
             {
-                GameObject optionsButton = FindFirstAvailableButton(new[] { "Options" });
+                GameObject optionsButton = FindButtonByLabel("Options");
                 if (optionsButton == null)
                 {
                     RoosterPlugin.LogError("Could not find a suitable button to clone for Mods");

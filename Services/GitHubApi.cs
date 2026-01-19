@@ -13,9 +13,6 @@ namespace Rooster.Services
     /// </summary>
     public static class GitHubApi
     {
-        // TODO: Replace with the actual URL provided by the user
-        public const string CURATED_LIST_URL = "https://raw.githubusercontent.com/KnusBernd/RoosterCuratedList/main/curated-mods.json";
-
         public static List<ThunderstorePackage> CachedPackages = new List<ThunderstorePackage>();
         public static bool IsCacheReady = false;
         public static bool IsCaching = false;
@@ -31,11 +28,13 @@ namespace Rooster.Services
 
             // 1. Try Load from Disk
             var cached = LoadCache();
+
             if (cached != null)
             {
                 long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                // 1 hour = 3600 seconds
-                if (now - cached.Timestamp < 3600 && cached.Packages != null && cached.Packages.Count > 0)
+                int duration = RoosterConfig.GitHubCacheDuration.Value;
+                
+                if (now - cached.Timestamp < duration && cached.Packages != null && cached.Packages.Count > 0)
                 {
                     RoosterPlugin.LogInfo($"Using Valid Disk Cache (Age: {(now - cached.Timestamp)}s)");
                     CachedPackages = cached.Packages;
@@ -45,15 +44,26 @@ namespace Rooster.Services
                 }
                 else
                 {
-                    RoosterPlugin.LogInfo("Disk Cache expired or invalid. Fetching fresh...");
+                    RoosterPlugin.LogInfo("Disk Cache expired. Attempting to fetch fresh...");
                 }
             }
 
             yield return FetchCuratedList((packages, error) => {
                 if (error != null)
                 {
-                    RoosterPlugin.LogError($"GitHub Code Cache failed: {error}");
-                    LastError = error;
+                    bool isRateLimit = error.Contains("Rate Limit") || error.Contains("403") || error.Contains("429");
+                    
+                    if (isRateLimit && cached != null && cached.Packages != null && cached.Packages.Count > 0)
+                    {
+                        RoosterPlugin.LogWarning($"GitHub Rate Limit hit. Falling back to stale disk cache (Age: {(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - cached.Timestamp)}s).");
+                        CachedPackages = cached.Packages;
+                        IsCacheReady = true;
+                    }
+                    else
+                    {
+                         RoosterPlugin.LogError($"GitHub Code Cache failed: {error}");
+                         LastError = error;
+                    }
                 }
                 else
                 {
@@ -76,7 +86,7 @@ namespace Rooster.Services
                     Packages = packages
                 };
                 string json = UnityEngine.JsonUtility.ToJson(cache, true);
-                string path = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "RoosterCache.json");
+                string path = System.IO.Path.Combine(RoosterConfig.RoosterConfigPath, "RoosterCache.json");
                 System.IO.File.WriteAllText(path, json);
                 RoosterPlugin.LogInfo($"Saved GitHub cache to {path}");
             }
@@ -90,7 +100,7 @@ namespace Rooster.Services
         {
             try
             {
-                string path = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "RoosterCache.json");
+                string path = System.IO.Path.Combine(RoosterConfig.RoosterConfigPath, "RoosterCache.json");
                 if (System.IO.File.Exists(path))
                 {
                     string json = System.IO.File.ReadAllText(path);
@@ -106,11 +116,13 @@ namespace Rooster.Services
 
         public static IEnumerator FetchCuratedList(Action<List<ThunderstorePackage>, string> onComplete)
         {
-             RoosterPlugin.LogInfo($"Fetching curated list from: {CURATED_LIST_URL}");
+             // Use configured URL
+             string url = RoosterConfig.GitHubCuratedUrl.Value;
+             RoosterPlugin.LogInfo($"Fetching curated list from: {url}");
             
              var allPackages = new List<ThunderstorePackage>();
 
-             using (UnityWebRequest www = UnityWebRequest.Get(CURATED_LIST_URL))
+             using (UnityWebRequest www = UnityWebRequest.Get(url))
              {
                  yield return www.SendWebRequest();
 
@@ -188,7 +200,10 @@ namespace Rooster.Services
             _hasCheckedToken = true;
             try
             {
-                string path = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "rooster_github_token.txt");
+                string rawPath = RoosterConfig.GitHubTokenPath.Value;
+                string path = System.IO.Path.IsPathRooted(rawPath) 
+                    ? rawPath 
+                    : System.IO.Path.Combine(RoosterConfig.RoosterConfigPath, rawPath);
                 if (System.IO.File.Exists(path))
                 {
                     string token = System.IO.File.ReadAllText(path).Trim();

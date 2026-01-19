@@ -19,7 +19,8 @@ namespace Rooster
         public static bool RestartRequired = false;
 
         public static List<ModUpdateInfo> PendingUpdates = new List<ModUpdateInfo>();
-        public static HashSet<string> PendingInstalls = new HashSet<string>();
+        public static HashSet<string> PendingInstalls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        public static HashSet<string> PendingUninstalls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         public static HashSet<string> InstalledPackageIds = new HashSet<string>();
 
@@ -65,7 +66,10 @@ namespace Rooster
 
                 RoosterConfig.RegisterMod(guid, modName);
 
+                // Prioritize Thunderstore matching
                 ThunderstorePackage matchedPkg = ModMatcher.FindPackage(plugin, CachedPackages);
+                
+                // Fallback to GitHub matching would go here in the future
 
                 if (matchedPkg == null && plugin.Metadata.Name.IndexOf("RemovePlayerPlacements", StringComparison.OrdinalIgnoreCase) >= 0)
                 {

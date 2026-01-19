@@ -89,40 +89,32 @@ namespace Rooster.UI
             layout.padding = new RectOffset(40, 40, 30, 30);
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandHeight = false;
 
             string guid = _currentPlugin.Metadata.GUID;
             bool autoUpdateEnabled = RoosterConfig.IsModAutoUpdate(guid);
             bool isIgnored = RoosterConfig.IsModIgnored(guid);
             bool isDiscovered = !string.IsNullOrEmpty(_thunderstoreFullName);
 
-            CreateToggleRow(_settingsContainer.transform, modal, "Auto-Update", autoUpdateEnabled,
-                onOn: () => {
-                    RoosterConfig.SetModAutoUpdate(guid, true);
-                    UpdateButtonStyles(_autoUpdateOnBtn, _autoUpdateOffBtn, true);
-                },
-                onOff: () => {
-                    RoosterConfig.SetModAutoUpdate(guid, false);
-                    UpdateButtonStyles(_autoUpdateOnBtn, _autoUpdateOffBtn, false);
-                },
-                out _autoUpdateOnBtn, out _autoUpdateOffBtn);
+            UIHelpers.CreateToggleRow(_settingsContainer.transform.GetComponent<RectTransform>(), modal, "Auto-Update", autoUpdateEnabled, (val) => {
+                    RoosterConfig.SetModAutoUpdate(guid, val);
+                }, out _autoUpdateOnBtn, out _autoUpdateOffBtn);
 
-            CreateToggleRow(_settingsContainer.transform, modal, "Ignore Updates", isIgnored,
-                onOn: () => {
-                    RoosterConfig.SetModIgnored(guid, true);
-                    UpdateButtonStyles(_ignoreOnBtn, _ignoreOffBtn, true);
-                    if (_autoUpdateOnBtn != null) _autoUpdateOnBtn.SetDisabled(true);
-                    if (_autoUpdateOffBtn != null) _autoUpdateOffBtn.SetDisabled(true);
-                },
-                onOff: () => {
-                    RoosterConfig.SetModIgnored(guid, false);
-                    UpdateButtonStyles(_ignoreOnBtn, _ignoreOffBtn, false);
-                    if (isDiscovered)
-                    {
-                        if (_autoUpdateOnBtn != null) _autoUpdateOnBtn.SetDisabled(false);
-                        if (_autoUpdateOffBtn != null) _autoUpdateOffBtn.SetDisabled(false);
-                    }
-                },
-                out _ignoreOnBtn, out _ignoreOffBtn);
+            UIHelpers.CreateToggleRow(_settingsContainer.transform.GetComponent<RectTransform>(), modal, "Ignore Updates", isIgnored, (val) => {
+                 RoosterConfig.SetModIgnored(guid, val);
+                 if (val) 
+                 {
+                     if (_autoUpdateOnBtn != null) _autoUpdateOnBtn.SetDisabled(true);
+                     if (_autoUpdateOffBtn != null) _autoUpdateOffBtn.SetDisabled(true);
+                 }
+                 else if (isDiscovered)
+                 {
+                     if (_autoUpdateOnBtn != null) _autoUpdateOnBtn.SetDisabled(false);
+                     if (_autoUpdateOffBtn != null) _autoUpdateOffBtn.SetDisabled(false);
+                 }
+            }, out _ignoreOnBtn, out _ignoreOffBtn);
 
             if (!isDiscovered || isIgnored)
             {
@@ -136,134 +128,74 @@ namespace Rooster.UI
                 if (_ignoreOffBtn != null) _ignoreOffBtn.SetDisabled(true);
             }
 
+            bool isPendingUninstall = UpdateChecker.PendingUninstalls.Contains(guid);
+            if (isPendingUninstall)
+            {
+                 if (_autoUpdateOnBtn != null) _autoUpdateOnBtn.SetDisabled(true);
+                 if (_autoUpdateOffBtn != null) _autoUpdateOffBtn.SetDisabled(true);
+                 if (_ignoreOnBtn != null) _ignoreOnBtn.SetDisabled(true);
+                 if (_ignoreOffBtn != null) _ignoreOffBtn.SetDisabled(true);
+            }
+
+            // Uninstall Button
+            if (!guid.Equals("de.knusbernd.rooster", StringComparison.OrdinalIgnoreCase))
+            {
+                 var actionRow = new GameObject("ActionRow", typeof(RectTransform));
+                 actionRow.transform.SetParent(_settingsContainer.transform, false);
+                 
+                 var actionLayout = actionRow.AddComponent<HorizontalLayoutGroup>();
+                 actionLayout.childAlignment = TextAnchor.MiddleCenter;
+                 actionLayout.childForceExpandWidth = false;
+                 actionLayout.childForceExpandHeight = false;
+
+                 var rowLe = actionRow.AddComponent<LayoutElement>();
+                 rowLe.preferredHeight = 110; 
+                 rowLe.minHeight = 90;
+
+                 var btnText = isPendingUninstall ? "Uninstall Pending" : "Uninstall Mod";
+                 var uninstallBtn = UIHelpers.CreateButton(actionRow.transform, modal.okButton, btnText, 450, 80);
+                 
+                 if (isPendingUninstall)
+                 {
+                     UIHelpers.ApplyTheme(uninstallBtn, UIHelpers.Themes.Neutral);
+                     uninstallBtn.SetDisabled(true);
+                 }
+                 else
+                 {
+                     UIHelpers.ApplyTheme(uninstallBtn, UIHelpers.Themes.Danger);
+                     uninstallBtn.OnClick = new TabletButtonEvent();
+                     uninstallBtn.OnClick.AddListener((c) => {
+                         UIHelpers.ShowUninstallConfirmation(modal, _currentPlugin, _settingsContainer, 
+                         () => ShowModSettings(_currentPlugin, _thunderstoreFullName), 
+                         (deleteConfig) => {
+                             Services.ModUninstaller.UninstallMod(_currentPlugin, deleteConfig, (success, err) => {
+                                 if (success) {
+                                     // Clean up the uninstall UI (toggles/buttons) before showing success message
+                                     var textObj = modal.simpleMessageText != null ? modal.simpleMessageText.gameObject : null;
+                                     UIHelpers.CleanContainer(modal.simpleMessageContainer.gameObject, textObj);
+                                     
+                                     string msg = deleteConfig 
+                                         ? "Uninstall staged; configuration deleted. Dll will be cleaned up with the next Restart." 
+                                         : "Uninstall staged. Dll will be cleaned up with the next Restart.";
+
+                                     modal.ShowSimpleMessage("Uninstall Successful", msg, () => {
+                                        CleanupCustomUI();
+                                        modal.Close();
+                                     });
+                                 } else {
+                                     var textObj = modal.simpleMessageText != null ? modal.simpleMessageText.gameObject : null;
+                                     UIHelpers.CleanContainer(modal.simpleMessageContainer.gameObject, textObj);
+                                     modal.ShowSimpleMessage("Uninstall Failed", err, () => ShowModSettings(_currentPlugin, _thunderstoreFullName));
+                                 }
+                             });
+                         });
+                     });
+                 }
+            }
+
             LayoutRebuilder.ForceRebuildLayoutImmediate(containerRect);
         }
 
-        private static void CreateToggleRow(Transform parent, TabletModalOverlay modal, string labelText,
-            bool initialValue, Action onOn, Action onOff, 
-            out TabletButton onBtn, out TabletButton offBtn)
-        {
-            int layer = parent.gameObject.layer;
-
-            var rowObj = new GameObject($"Row_{labelText.Replace(" ", "")}", typeof(RectTransform));
-            rowObj.layer = layer;
-            rowObj.transform.SetParent(parent, false);
-            
-            var rowRect = rowObj.GetComponent<RectTransform>();
-            rowRect.sizeDelta = new Vector2(700, 70);
-
-            var hLayout = rowObj.AddComponent<HorizontalLayoutGroup>();
-            hLayout.childAlignment = TextAnchor.MiddleCenter;
-            hLayout.spacing = 20f;
-            hLayout.childForceExpandWidth = false;
-            hLayout.childForceExpandHeight = false;
-
-            var rowLE = rowObj.AddComponent<LayoutElement>();
-            rowLE.preferredHeight = 70f;
-            rowLE.flexibleWidth = 1f;
-
-            var labelObj = UnityEngine.Object.Instantiate(modal.titleText.gameObject, rowObj.transform);
-            labelObj.name = "Label";
-            labelObj.transform.localScale = Vector3.one;
-            
-            var labelTxt = labelObj.GetComponent<TabletTextLabel>();
-            if (labelTxt != null)
-            {
-                labelTxt.text = labelText;
-                labelTxt.labelType = TabletTextLabel.LabelType.Normal;
-            }
-
-            var labelLE = labelObj.GetComponent<LayoutElement>() ?? labelObj.AddComponent<LayoutElement>();
-            labelLE.preferredWidth = 350f;
-            labelLE.flexibleWidth = 1f;
-
-            var onBtnObj = UnityEngine.Object.Instantiate(modal.onButton.gameObject, rowObj.transform);
-            onBtnObj.name = "OnBtn";
-            onBtnObj.transform.localScale = Vector3.one;
-            
-            onBtn = onBtnObj.GetComponent<TabletButton>();
-            if (onBtn != null)
-            {
-                var onLabel = onBtnObj.GetComponentInChildren<TabletTextLabel>();
-                if (onLabel != null) 
-                {
-                    onLabel.text = "On";
-                    onLabel.transform.localScale = new Vector3(0.6f, 0.6f, 1f);
-                    
-                    var txt = onLabel.GetComponent<Text>();
-                    if (txt != null)
-                    {
-                        txt.horizontalOverflow = HorizontalWrapMode.Overflow;
-                        txt.verticalOverflow = VerticalWrapMode.Overflow;
-                        txt.alignment = TextAnchor.MiddleCenter;
-                    }
-                }
-                
-                onBtn.OnClick = new TabletButtonEvent();
-                onBtn.OnClick.AddListener((cursor) => onOn());
-                onBtn.SetDisabled(false);
-                onBtn.SetInteractable(true);
-            }
-
-            var onLE = onBtnObj.GetComponent<LayoutElement>() ?? onBtnObj.AddComponent<LayoutElement>();
-            onLE.preferredWidth = 120f;
-            onLE.preferredHeight = 70f;
-            onLE.minWidth = 120f;
-            onLE.minHeight = 70f;
-
-            var offBtnObj = UnityEngine.Object.Instantiate(modal.offButton.gameObject, rowObj.transform);
-            offBtnObj.name = "OffBtn";
-            offBtnObj.transform.localScale = Vector3.one;
-            
-            offBtn = offBtnObj.GetComponent<TabletButton>();
-            if (offBtn != null)
-            {
-                var offLabel = offBtnObj.GetComponentInChildren<TabletTextLabel>();
-                if (offLabel != null)
-                {
-                    offLabel.text = "Off";
-                    offLabel.transform.localScale = new Vector3(0.6f, 0.6f, 1f);
-
-                    var txt = offLabel.GetComponent<Text>();
-                    if (txt != null)
-                    {
-                        txt.horizontalOverflow = HorizontalWrapMode.Overflow;
-                        txt.verticalOverflow = VerticalWrapMode.Overflow;
-                        txt.alignment = TextAnchor.MiddleCenter;
-                    }
-                }
-                
-                offBtn.OnClick = new TabletButtonEvent();
-                offBtn.OnClick.AddListener((cursor) => onOff());
-                offBtn.SetDisabled(false);
-                offBtn.SetInteractable(true);
-            }
-
-            var offLE = offBtnObj.GetComponent<LayoutElement>() ?? offBtnObj.AddComponent<LayoutElement>();
-            offLE.preferredWidth = 120f;
-            offLE.preferredHeight = 70f;
-            offLE.minWidth = 120f;
-            offLE.minHeight = 70f;
-
-            UpdateButtonStyles(onBtn, offBtn, initialValue);
-
-            onBtnObj.SetActive(true);
-            offBtnObj.SetActive(true);
-        }
-
-        private static void UpdateButtonStyles(TabletButton onBtn, TabletButton offBtn, bool isOn)
-        {
-            if (onBtn != null)
-            {
-                onBtn.buttonType = isOn ? TabletButton.ButtonType.Simple : TabletButton.ButtonType.Transparent;
-                onBtn.ResetStyles();
-            }
-            if (offBtn != null)
-            {
-                offBtn.buttonType = isOn ? TabletButton.ButtonType.Transparent : TabletButton.ButtonType.Simple;
-                offBtn.ResetStyles();
-            }
-        }
 
         public static void CleanupCustomUI()
         {

@@ -87,7 +87,7 @@ namespace Rooster.UI
             var modal = Tablet.clickEventReceiver.modalOverlay;
             var template = modal.okButton;
 
-            var tabletBtn = UIHelpers.CreateButton(parent, template, "Install", 400, 80);
+            var tabletBtn = UIHelpers.CreateButton(parent, template, "Install", 450, 80);
             var label = tabletBtn.GetComponentInChildren<TabletTextLabel>();
 
             // Check installation status
@@ -99,10 +99,74 @@ namespace Rooster.UI
                 
                 if (isInstalled)
                 {
-                    label.text = "Installed";
-                    tabletBtn.SetInteractable(false);
-                    tabletBtn.SetDisabled(true);
-                    UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Success);
+                    // Find the plugin info to enable uninstallation
+                    string guid = null;
+                    PluginInfo pluginInfo = null;
+
+                    // Try to find the GUID causing this Match
+                    // This is slightly expensive; we iterate installed plugins to find match
+                    foreach (var pair in UpdateChecker.MatchedPackages)
+                    {
+                        if (pair.Value.full_name == pkg.full_name)
+                        {
+                            guid = pair.Key;
+                            break;
+                        }
+                    }
+
+                    if (guid != null && BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue(guid, out pluginInfo))
+                    {
+                        label.text = "Uninstall";
+                        UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Danger); // Red button
+
+                        tabletBtn.OnClick = new TabletButtonEvent();
+                        tabletBtn.OnClick.AddListener((cursor) => {
+                             UIHelpers.ShowUninstallConfirmation(
+                                 Tablet.clickEventReceiver.modalOverlay, 
+                                 pluginInfo, 
+                                 _detailsContainer,
+                                 () => ShowDetails(pkg),
+                                 (deleteConfig) => {
+                                     ModUninstaller.UninstallMod(pluginInfo, deleteConfig, (success, err) => {
+                                         if (success)
+                                         {
+                                            var overlay = Tablet.clickEventReceiver.modalOverlay;
+                                            
+                                            // Clean up the uninstall UI (toggles/buttons) before showing success message
+                                            var textObj = overlay.simpleMessageText != null ? overlay.simpleMessageText.gameObject : null;
+                                            UIHelpers.CleanContainer(overlay.simpleMessageContainer.gameObject, textObj);
+
+                                            string msg = deleteConfig 
+                                                ? "Uninstall staged; configuration deleted. Dll will be cleaned up with the next Restart." 
+                                                : "Uninstall staged. Dll will be cleaned up with the next Restart.";
+
+                                            overlay.ShowSimpleMessage("Uninstall Successful", msg, () => {
+                                                ShowDetails(pkg);
+                                            });
+                                         }
+                                         else
+                                         {
+                                            var overlay = Tablet.clickEventReceiver.modalOverlay;
+                                            var textObj = overlay.simpleMessageText != null ? overlay.simpleMessageText.gameObject : null;
+                                            UIHelpers.CleanContainer(overlay.simpleMessageContainer.gameObject, textObj);
+                                            overlay.ShowSimpleMessage("Uninstall Failed", err, () => ShowDetails(pkg));
+                                         }
+                                     });
+                                 }
+                             );
+                        });
+
+                        tabletBtn.SetInteractable(true);
+                        tabletBtn.SetDisabled(false);
+                    }
+                    else
+                    {
+                        // Fallback if we can't link back to the DLL (should represent Installed)
+                        label.text = "Installed";
+                        tabletBtn.SetInteractable(false);
+                        tabletBtn.SetDisabled(true);
+                        UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Success);
+                    }
                 }
                 else if (UpdateChecker.PendingInstalls.Contains(pkg.full_name))
                 {
@@ -135,8 +199,6 @@ namespace Rooster.UI
                                      if (installSuccess)
                                      {
                                          label.text = "Pending Restart";
-                                         UpdateChecker.PendingInstalls.Add(pkg.full_name);
-                                         
                                          UpdateChecker.PendingInstalls.Add(pkg.full_name);
                                          
                                          // Update color scheme to disabled state

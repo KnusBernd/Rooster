@@ -1,3 +1,4 @@
+using System.Linq;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -53,11 +54,21 @@ namespace Rooster
 
             try 
             {
-                var oldFiles = System.IO.Directory.GetFiles(pluginsPath, "*.old*", System.IO.SearchOption.AllDirectories);
+                var oldFiles = System.IO.Directory.GetFiles(pluginsPath, "*.old*", System.IO.SearchOption.AllDirectories)
+                    .Concat(System.IO.Directory.GetFiles(pluginsPath, "*.deleted*", System.IO.SearchOption.AllDirectories));
+
+                int deletedCount = 0;
                 foreach (var f in oldFiles)
                 {
-                    try { System.IO.File.Delete(f); LogInfo($"Deleted old file: {f}"); } catch { }
+                    try 
+                    { 
+                        System.IO.File.Delete(f); 
+                        LogInfo($"[Cleanup] Deleted stale file: {System.IO.Path.GetFileName(f)}");
+                        deletedCount++;
+                    } 
+                    catch { }
                 }
+                if (deletedCount > 0) LogInfo($"[Cleanup] Removed {deletedCount} stale files.");
             } 
             catch { }
         }

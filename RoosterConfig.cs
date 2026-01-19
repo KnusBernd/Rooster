@@ -14,6 +14,11 @@ namespace Rooster
         private static Dictionary<string, ConfigEntry<bool>> _modIgnoreSettings = new Dictionary<string, ConfigEntry<bool>>();
         private static ConfigFile _config;
 
+        public static ConfigEntry<string> GitHubCuratedUrl { get; private set; }
+        public static ConfigEntry<int> GitHubCacheDuration { get; private set; }
+        public static ConfigEntry<string> GitHubTokenPath { get; private set; }
+        public static string RoosterConfigPath => System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "Rooster");
+
         public static ConfigEntry<bool> ShowBetaWarning { get; private set; }
         public static ConfigEntry<bool> DeveloperMode { get; private set; }
         public static ConfigEntry<KeyCode> DeveloperKey { get; private set; }
@@ -22,12 +27,40 @@ namespace Rooster
         {
             _config = config;
 
+            // Ensure Rooster config directory exists
+            if (!System.IO.Directory.Exists(RoosterConfigPath))
+            {
+                System.IO.Directory.CreateDirectory(RoosterConfigPath);
+            }
+
             ShowBetaWarning = config.Bind(
                 "General",
                 "ShowBetaWarning",
                 true,
                 "If true, a beta warning popup will be shown at the main menu."
             );
+            
+            GitHubCuratedUrl = config.Bind(
+                "GitHub",
+                "CuratedModListUrl",
+                "https://raw.githubusercontent.com/KnusBernd/RoosterCuratedList/main/curated-mods.json",
+                "The URL to fetch the curated list of mods from."
+            );
+
+            GitHubCacheDuration = config.Bind(
+                "GitHub",
+                "CacheDurationSeconds",
+                1800, // 30 minutes
+                "Time in seconds to cache GitHub API responses. Default is 30 minutes (1800)."
+            );
+
+            GitHubTokenPath = config.Bind(
+                "GitHub",
+                "TokenPath",
+                "github_token.txt",
+                "The path to the GitHub token file. Can be absolute or relative to 'BepInEx/config/Rooster/'."
+            );
+
 
             DeveloperMode = config.Bind(
                 "General",
@@ -43,6 +76,7 @@ namespace Rooster
                 "The key to toggle the Developer Tools window."
             );
         }
+
 
         /// <summary>Registers a mod for config if not already registered.</summary>
         public static void RegisterMod(string guid, string modName)
