@@ -50,22 +50,12 @@ namespace Rooster.UI
 
             var modal = Tablet.clickEventReceiver.modalOverlay;
             
-            int modCount = Chainloader.PluginInfos.Count;
-            modal.ShowSimpleMessage($"Installed Mods ({modCount})", "", () => { });
-            
-            modal.okButtonContainer.gameObject.SetActive(true);
-            var okLabel = modal.okButton.GetComponentInChildren<TabletTextLabel>();
-            if (okLabel != null) okLabel.text = "Back";
+            _buttonTemplate = modal.okButton;
 
-            modal.okButton.OnClick = new TabletButtonEvent();
-            modal.okButton.OnClick.AddListener((cursor) => {
+            UIHelpers.SetupModal(modal, new Vector2(1000, 900), $"Installed Mods ({Chainloader.PluginInfos.Count})", () => {
                 modal.Close();
                 _cleanupCoroutine = RoosterPlugin.Instance.StartCoroutine(CleanupCoroutine(modal));
             });
-
-            modal.onOffContainer.gameObject.SetActive(false);
-
-            _buttonTemplate = modal.okButton;
 
             try
             {
@@ -81,7 +71,6 @@ namespace Rooster.UI
         {
             DestroyUI(modal);
 
-            var textObj = modal.simpleMessageText.gameObject;
             var container = modal.simpleMessageContainer;
             if (container == null) return;
             var containerRect = container.GetComponent<RectTransform>();
@@ -91,27 +80,7 @@ namespace Rooster.UI
                 _originalSize = containerRect.sizeDelta;
             }
 
-            containerRect.sizeDelta = new Vector2(1000, 900);
-            
-            var bgImg = container.gameObject.GetComponent<Image>() ?? container.gameObject.AddComponent<Image>();
-            bgImg.color = Color.clear;
-            bgImg.raycastTarget = true;
-
-            // Remove any existing LayoutGroup or Fitter that might interfere with manual positioning
-            var existingLayout = container.GetComponent<LayoutGroup>();
-            if (existingLayout != null) UnityEngine.Object.DestroyImmediate(existingLayout);
-            
-            var existingFitter = container.GetComponent<ContentSizeFitter>();
-            if (existingFitter != null) UnityEngine.Object.DestroyImmediate(existingFitter);
-
-             // Enforce size using LayoutElement in case parent forces layout
-            var containerLE = container.GetComponent<LayoutElement>() ?? container.gameObject.AddComponent<LayoutElement>();
-            containerLE.preferredWidth = 1000f;
-            containerLE.preferredHeight = 900f;
-            containerLE.minWidth = 1000f;
-            containerLE.minHeight = 900f;
-            containerLE.flexibleWidth = 0f;
-            containerLE.flexibleHeight = 0f;
+            UIHelpers.CleanContainer(container.gameObject);
 
             foreach (var btn in _modButtons)
             {
@@ -119,9 +88,7 @@ namespace Rooster.UI
             }
             _modButtons.Clear();
 
-            textObj.SetActive(false);
-
-            textObj.SetActive(false);
+            modal.simpleMessageText.gameObject.SetActive(false); // Ensure hidden
 
             // Use unified ScrollLayout
             // Top Margin: 80 (was -80 offsetMax)
@@ -201,22 +168,11 @@ namespace Rooster.UI
                  tabletBtn.ResetStyles();
                  
                  // Create custom color scheme to handle hover states natively
-                 var newScheme = UIHelpers.CloneColorScheme(_buttonTemplate.colorScheme, btnObj);
-                 
-                 Color normalColor = new Color(0.2f, 0.7f, 0.3f);
-                 Color hoverColor = new Color(0.3f, 0.8f, 0.4f); // Lighter green
-                 
-                 newScheme.buttonBgColor = normalColor;
-                 newScheme.buttonBgColor_Hover = hoverColor;
-                 newScheme.buttonBgColor_Disabled = new Color(0.2f, 0.2f, 0.2f);
-                 
-                 tabletBtn.colorScheme = newScheme;
-                 tabletBtn.ResetStyles();
-                 
-                 // Ensure background is enabled
-                 if (tabletBtn.background != null) {
-                     tabletBtn.background.color = normalColor;
-                 }
+                 UIHelpers.ApplyButtonStyle(tabletBtn, 
+                    new Color(0.2f, 0.7f, 0.3f), // Normal Green
+                    new Color(0.3f, 0.8f, 0.4f), // Hover
+                    new Color(0.2f, 0.2f, 0.2f)  // Disabled
+                 );
             }
             
             // Positioning at Bottom Center

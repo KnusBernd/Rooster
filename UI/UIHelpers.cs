@@ -1,12 +1,9 @@
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Rooster.UI
 {
-    /// <summary>
-    /// Provides utility methods for creating and managing common UI elements.
-    /// Handles texture generation and scrollbar instantiation.
-    /// </summary>
     public static class UIHelpers
     {
         private static Texture2D _whiteTexture;
@@ -206,7 +203,7 @@ namespace Rooster.UI
             txt.verticalOverflow = VerticalWrapMode.Overflow;
 
             var layout = obj.AddComponent<LayoutElement>();
-            layout.preferredHeight = fontSize + 10;
+            //layout.preferredHeight = fontSize + 10;
             layout.flexibleWidth = 1;
         }
 
@@ -243,6 +240,74 @@ namespace Rooster.UI
 
             btnObj.SetActive(true);
             return tabletBtn;
+        }
+        public static void ApplyButtonStyle(TabletButton btn, Color normal, Color hover, Color disabled)
+        {
+            if (btn == null) return;
+
+            var newScheme = CloneColorScheme(btn.colorScheme ?? btn.gameObject.GetComponentInParent<TabletButton>()?.colorScheme, btn.gameObject);
+            
+            newScheme.buttonBgColor = normal;
+            newScheme.buttonBgColor_Hover = hover;
+            newScheme.buttonBgColor_Disabled = disabled;
+            newScheme.buttonBgColor_TransparentHighlight = hover; 
+
+            btn.colorScheme = newScheme;
+            btn.ResetStyles();
+        
+            if (btn.background != null) 
+            {
+                btn.background.color = normal;
+                btn.background.raycastTarget = true;
+                btn.background.enabled = true;
+            }
+        }
+
+        public static void SetupModal(TabletModalOverlay modal, Vector2 size, string title, Action onBack)
+        {
+            // 1. Reset standard elements
+            modal.ShowSimpleMessage(title, "", () => { });
+            modal.simpleMessageText.gameObject.SetActive(false);
+            modal.onOffContainer.gameObject.SetActive(false);
+            
+            // 2. Setup Back Button
+            modal.okButtonContainer.gameObject.SetActive(true);
+            var okLabel = modal.okButton.GetComponentInChildren<TabletTextLabel>();
+            if (okLabel != null) okLabel.text = "Back";
+
+            modal.okButton.OnClick = new TabletButtonEvent();
+            modal.okButton.OnClick.AddListener((cursor) => onBack?.Invoke());
+
+            // 3. Clean Container
+            CleanContainer(modal.simpleMessageContainer.gameObject);
+
+            // 4. Setup Container Styling
+            var container = modal.simpleMessageContainer;
+            var rect = container.GetComponent<RectTransform>();
+            rect.sizeDelta = size;
+
+            var bgImg = container.gameObject.GetComponent<Image>() ?? container.gameObject.AddComponent<Image>();
+            bgImg.color = Color.clear;
+            bgImg.raycastTarget = true;
+        }
+
+        public static void CleanContainer(GameObject container)
+        {
+            // Remove layouts
+            foreach(var layout in container.GetComponents<LayoutGroup>())
+                UnityEngine.Object.DestroyImmediate(layout);
+                
+            foreach(var fitter in container.GetComponents<ContentSizeFitter>())
+                UnityEngine.Object.DestroyImmediate(fitter);
+
+            // Ensure LayoutElement for parent compatibility
+            var le = container.GetComponent<LayoutElement>() ?? container.AddComponent<LayoutElement>();
+            le.preferredWidth = 1000f; // Default max
+            le.preferredHeight = 900f;
+            le.minWidth = 100f;
+            le.minHeight = 100f;
+            le.flexibleWidth = 0f;
+            le.flexibleHeight = 0f;
         }
     }
 }

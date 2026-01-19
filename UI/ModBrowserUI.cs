@@ -53,20 +53,12 @@ namespace Rooster.UI
             // Ensure ModMenu is cleaned up
             ModMenuUI.DestroyUI(modal);
             
-            modal.ShowSimpleMessage("Mod Browser", "", () => { });
-            modal.okButtonContainer.gameObject.SetActive(true);
             _buttonTemplate = modal.okButton;
-            
-            var okLabel = modal.okButton.GetComponentInChildren<TabletTextLabel>();
-            if (okLabel != null) okLabel.text = "Back";
 
-            modal.okButton.OnClick = new TabletButtonEvent();
-            modal.okButton.OnClick.AddListener((cursor) => {
-               Close();
-               ModMenuUI.ShowModMenu(); // Go back to mod menu
-            });
-
-            modal.onOffContainer.gameObject.SetActive(false); // Hide standard content for now
+             UIHelpers.SetupModal(modal, new Vector2(1000, 900), "Mod Browser", () => {
+                 Close();
+                 ModMenuUI.ShowModMenu(); // Go back to mod menu
+             });
 
             ApplyStyling(modal);
             
@@ -251,14 +243,10 @@ namespace Rooster.UI
             DestroyUI(modal);
             
             var container = modal.simpleMessageContainer;
-            var containerRect = container.GetComponent<RectTransform>();
             
-            if (!_originalSize.HasValue) _originalSize = containerRect.sizeDelta;
-            
-            containerRect.sizeDelta = new Vector2(1000, 900);
-            
-            var bgImg = container.gameObject.GetComponent<Image>() ?? container.gameObject.AddComponent<Image>();
-            bgImg.color = Color.clear;
+            if (!_originalSize.HasValue) _originalSize = container.GetComponent<RectTransform>().sizeDelta;
+
+            UIHelpers.CleanContainer(container.gameObject);
 
             var layout = UIHelpers.CreateScrollLayout(container.gameObject, "Browser", 120, 0, 25, 40, 10);
             
@@ -350,22 +338,21 @@ namespace Rooster.UI
             var tabletBtn = btnObj.GetComponent<TabletButton>();
             if (tabletBtn != null)
             {
-                 var newScheme = UIHelpers.CloneColorScheme(_buttonTemplate.colorScheme, btnObj);
-                 newScheme.buttonBgColor = new Color(0.8f, 0.6f, 0.2f); // Orange-ish
-                 newScheme.buttonBgColor_Hover = new Color(0.9f, 0.7f, 0.3f);
-                 tabletBtn.colorScheme = newScheme;
-                 
-                 tabletBtn.OnClick = new TabletButtonEvent();
-                 tabletBtn.OnClick.AddListener((cursor) => {
-                     // Trigger Refresh
-                     RoosterPlugin.Instance.StartCoroutine(FetchAndDisplay(true));
-                 });
-                 tabletBtn.SetDisabled(false);
-                 tabletBtn.SetInteractable(true);
-                 tabletBtn.buttonType = TabletButton.ButtonType.Simple;
-                 tabletBtn.ResetStyles();
-                 
-                  if (tabletBtn.background != null) tabletBtn.background.color = newScheme.buttonBgColor;
+                  UIHelpers.ApplyButtonStyle(tabletBtn,
+                    new Color(0.8f, 0.6f, 0.2f), // Orange-ish
+                    new Color(0.9f, 0.7f, 0.3f),
+                    new Color(0.5f, 0.5f, 0.5f)
+                  );
+                  
+                  tabletBtn.OnClick = new TabletButtonEvent();
+                  tabletBtn.OnClick.AddListener((cursor) => {
+                      // Trigger Refresh
+                      RoosterPlugin.Instance.StartCoroutine(FetchAndDisplay(true));
+                  });
+                  tabletBtn.SetDisabled(false);
+                  tabletBtn.SetInteractable(true);
+                  tabletBtn.buttonType = TabletButton.ButtonType.Simple;
+                  tabletBtn.ResetStyles();
                   
                   _refreshButton = tabletBtn;
             }
@@ -430,19 +417,17 @@ namespace Rooster.UI
             var tabletBtn = btnObj.GetComponent<TabletButton>();
             if (tabletBtn != null)
             {
-                 var newScheme = UIHelpers.CloneColorScheme(_buttonTemplate.colorScheme, btnObj);
-                 
                  Color activeColor = new Color(0.2f, 0.6f, 1f); // Blue
                  Color inactiveColor = new Color(0.5f, 0.5f, 0.5f); // Grey
                  Color hoverColor = active ? new Color(0.3f, 0.7f, 1f) : new Color(0.6f, 0.6f, 0.6f);
                  
                  Color baseColor = active ? activeColor : inactiveColor;
                  
-                 newScheme.buttonBgColor = baseColor;
-                 newScheme.buttonBgColor_Hover = hoverColor;
-                 newScheme.buttonBgColor_Disabled = inactiveColor;
-                 
-                 tabletBtn.colorScheme = newScheme;
+                 UIHelpers.ApplyButtonStyle(tabletBtn,
+                    baseColor,
+                    hoverColor,
+                    inactiveColor
+                 );
                  
                  tabletBtn.OnClick = new TabletButtonEvent();
                  tabletBtn.OnClick.AddListener((cursor) => {
@@ -453,10 +438,6 @@ namespace Rooster.UI
                  tabletBtn.SetInteractable(true);
                  tabletBtn.buttonType = TabletButton.ButtonType.Simple;
                  tabletBtn.ResetStyles();
-                 
-                  if (tabletBtn.background != null) {
-                     tabletBtn.background.color = baseColor;
-                  }
             }
             
             var le = btnObj.GetComponent<LayoutElement>();
@@ -565,13 +546,11 @@ namespace Rooster.UI
                     hoverColor = new Color(0.9f, 0.9f, 0.9f); // Lighter Grey
                 }
                 
-                // Use custom scheme
-                var newScheme = UIHelpers.CloneColorScheme(_buttonTemplate.colorScheme, btnObj);
-                newScheme.buttonBgColor = normalColor;
-                newScheme.buttonBgColor_Hover = hoverColor;
-                
-                tabletBtn.colorScheme = newScheme;
-                tabletBtn.ResetStyles();
+                UIHelpers.ApplyButtonStyle(tabletBtn,
+                    normalColor,
+                    hoverColor,
+                    normalColor
+                );
              }
 
              var le = btnObj.GetComponent<LayoutElement>() ?? btnObj.AddComponent<LayoutElement>();

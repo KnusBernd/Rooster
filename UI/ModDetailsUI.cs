@@ -112,30 +112,26 @@ namespace Rooster.UI
                 Color hoverColor = new Color(0.3f, 0.8f, 0.4f);
                 Color disabledColor = new Color(0.3f, 0.3f, 0.3f);
 
+                UIHelpers.ApplyButtonStyle(tabletBtn,
+                    normalColor,
+                    hoverColor,
+                    disabledColor
+                );
+                
                 if (isInstalled)
                 {
-                    newScheme.buttonBgColor = disabledColor;
-                    newScheme.buttonBgColor_Hover = disabledColor;
-                    newScheme.buttonBgColor_Disabled = disabledColor;
                     label.text = "Installed";
                     tabletBtn.SetInteractable(false);
                     tabletBtn.SetDisabled(true);
                 }
                 else if (UpdateChecker.PendingInstalls.Contains(pkg.full_name))
                 {
-                    newScheme.buttonBgColor = disabledColor;
-                    newScheme.buttonBgColor_Hover = disabledColor;
-                    newScheme.buttonBgColor_Disabled = disabledColor;
                     label.text = "Pending Restart";
                     tabletBtn.SetInteractable(false);
                     tabletBtn.SetDisabled(true);
                 }
                 else
                 {
-                    newScheme.buttonBgColor = normalColor;
-                    newScheme.buttonBgColor_Hover = hoverColor;
-                    newScheme.buttonBgColor_Disabled = disabledColor;
-                    
                     tabletBtn.OnClick = new TabletButtonEvent();
                     tabletBtn.OnClick.AddListener((cursor) => {
                         label.text = "Installing...";
@@ -159,9 +155,7 @@ namespace Rooster.UI
                                          UpdateChecker.PendingInstalls.Add(pkg.full_name);
                                          
                                          // Update color scheme to disabled state
-                                         newScheme.buttonBgColor = disabledColor;
-                                         newScheme.buttonBgColor_Hover = disabledColor;
-                                         tabletBtn.ResetStyles();
+                                         UIHelpers.ApplyButtonStyle(tabletBtn, disabledColor, disabledColor, disabledColor);
                                      }
                                      else
                                      {

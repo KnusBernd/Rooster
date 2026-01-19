@@ -117,6 +117,17 @@ namespace Rooster
                 }
             }
             
+            // FAKE UPDATE SCENARIO FOR TESTING
+            if (manualUpdates.Count == 0 && autoUpdates.Count == 0)
+            {
+                 manualUpdates.Add(new ModUpdateInfo {
+                        ModName = "Fake Update Mod",
+                        Version = "1.0.0",
+                        PluginInfo = null,
+                        DownloadUrl = "" 
+                 });
+            }
+            
             if (autoUpdates.Count > 0)
             {
                 PendingUpdates.AddRange(autoUpdates);
