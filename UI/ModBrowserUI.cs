@@ -21,8 +21,11 @@ namespace Rooster.UI
         private static bool _isThunderstoreTab = true;
         
         // Caching the modal for refreshing
+        // Caching the modal for refreshing
         private static TabletModalOverlay _currentModal;
         private static TabletButton _refreshButton; // Keep reference to disable during load
+        private static TabletTextLabel _refreshLabel;
+
 
         public static void ShowModBrowser()
         {
@@ -71,6 +74,8 @@ namespace Rooster.UI
             RoosterPlugin.LogInfo($"ModBrowser: FetchAndDisplay Started (Force: {forceRefresh})");
             
             if (_refreshButton != null) _refreshButton.SetInteractable(false);
+            if (_refreshLabel != null) _refreshLabel.text = "Refreshing...";
+
             
             // Loading Indicator removed per user request
 
@@ -115,7 +120,8 @@ namespace Rooster.UI
                         // Ensure we clean up even on error
                         HideLoading();
                         if (_refreshButton != null) _refreshButton.SetInteractable(true);
-                        yield break; 
+                        if (_refreshLabel != null) _refreshLabel.text = "Refresh";
+                        yield break;  
                     }
                 }
 
@@ -171,7 +177,9 @@ namespace Rooster.UI
             }
             
             HideLoading();
+            HideLoading();
             if (_refreshButton != null) _refreshButton.SetInteractable(true);
+            if (_refreshLabel != null) _refreshLabel.text = "Refresh";
         }
 
         private static void HideLoading()
@@ -268,10 +276,10 @@ namespace Rooster.UI
 
         private static void CreateTabs(Transform parent)
         {
-            // Simple buttons for tabs
-            // Position them above the list
+            // Evenly Spaced Buttons: -300, 0, 300
+            // Widths: 300, 300, 200
             
-            CreateTabButton(parent, "Thunderstore", -320, () => {
+            CreateTabButton(parent, "Thunderstore", -310, () => {
                 if (!_isThunderstoreTab) {
                     _isThunderstoreTab = true;
                     RefreshList();
@@ -280,7 +288,7 @@ namespace Rooster.UI
                 }
             }, _isThunderstoreTab);
 
-            CreateTabButton(parent, "GitHub", 50, () => {
+            CreateTabButton(parent, "GitHub", 10, () => {
                 if (_isThunderstoreTab) {
                     _isThunderstoreTab = false;
                     RefreshList();
@@ -301,15 +309,16 @@ namespace Rooster.UI
             btnObj.name = "RefreshButton";
              
             var rect = btnObj.GetComponent<RectTransform>();
-            rect.anchorMin = Vector2.one; // Top-Right
-            rect.anchorMax = Vector2.one; // Top-Right
-            rect.pivot = Vector2.one;     // Top-Right pivot
+            rect.anchorMin = new Vector2(0.5f, 1);
+            rect.anchorMax = new Vector2(0.5f, 1);
+            rect.pivot = new Vector2(0.5f, 1);     
             rect.sizeDelta = new Vector2(200, 80); 
-            rect.anchoredPosition = new Vector2(-30, -30); // Padding from edge
+            rect.anchoredPosition = new Vector2(300, -10); // Far Right Spot, Center Anchor
 
             var label = btnObj.GetComponentInChildren<TabletTextLabel>();
              if (label != null)
             {
+                _refreshLabel = label;
                 label.text = "Refresh";
                 label.transform.localScale = new Vector3(0.4f, 0.4f, 1f);
                 label.labelType = TabletTextLabel.LabelType.Normal;
@@ -374,7 +383,7 @@ namespace Rooster.UI
             rect.anchorMin = new Vector2(0.5f, 1);
             rect.anchorMax = new Vector2(0.5f, 1);
             rect.pivot = new Vector2(0.5f, 1);
-            rect.sizeDelta = new Vector2(350, 80); // Slightly smaller to fit refresh
+            rect.sizeDelta = new Vector2(300, 80); // Slightly smaller to fit refresh
             rect.anchoredPosition = new Vector2(xOffset, -10);
 
             // Label
