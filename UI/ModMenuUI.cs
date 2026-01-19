@@ -97,6 +97,22 @@ namespace Rooster.UI
             bgImg.color = Color.clear;
             bgImg.raycastTarget = true;
 
+            // Remove any existing LayoutGroup or Fitter that might interfere with manual positioning
+            var existingLayout = container.GetComponent<LayoutGroup>();
+            if (existingLayout != null) UnityEngine.Object.DestroyImmediate(existingLayout);
+            
+            var existingFitter = container.GetComponent<ContentSizeFitter>();
+            if (existingFitter != null) UnityEngine.Object.DestroyImmediate(existingFitter);
+
+             // Enforce size using LayoutElement in case parent forces layout
+            var containerLE = container.GetComponent<LayoutElement>() ?? container.gameObject.AddComponent<LayoutElement>();
+            containerLE.preferredWidth = 1000f;
+            containerLE.preferredHeight = 900f;
+            containerLE.minWidth = 1000f;
+            containerLE.minHeight = 900f;
+            containerLE.flexibleWidth = 0f;
+            containerLE.flexibleHeight = 0f;
+
             foreach (var btn in _modButtons)
             {
                 if (btn != null) UnityEngine.Object.DestroyImmediate(btn);
@@ -113,8 +129,10 @@ namespace Rooster.UI
             
             viewportRect.anchorMin = Vector2.zero;
             viewportRect.anchorMax = Vector2.one;
-            viewportRect.offsetMin = Vector2.zero;
-            viewportRect.offsetMax = new Vector2(-50, -10);
+            viewportRect.anchorMin = Vector2.zero;
+            viewportRect.anchorMax = Vector2.one;
+            viewportRect.offsetMin = new Vector2(0, 100); // Reserve bottom space (increased for larger button)
+            viewportRect.offsetMax = new Vector2(-50, -80);
 
             var vpImg = viewportObj.AddComponent<Image>();
             vpImg.sprite = UIHelpers.GetWhiteSprite();
@@ -158,15 +176,98 @@ namespace Rooster.UI
             scrollRect.scrollSensitivity = 30f;
             scrollRect.enabled = true;
 
+            // Browse Button - Moved to bottom
+            CreateBrowseButton(containerRect);
+
             foreach (var plugin in Chainloader.PluginInfos.Values)
             {
                 CreateModButton(contentRect, plugin);
             }
 
             _scrollbarObj = UIHelpers.CreateScrollbar(container, scrollRect, "ModMenu");
+            var sbRect = _scrollbarObj.GetComponent<RectTransform>();
+            sbRect.offsetMin = new Vector2(sbRect.offsetMin.x, 100); // Lift bottom to not overlap button
 
             UnityEngine.Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
+        }
+
+        private static void CreateBrowseButton(RectTransform parent)
+        {
+            if (_buttonTemplate == null) return;
+            
+            // Clone the 'on' button template for a smaller style
+            var btnObj = UnityEngine.Object.Instantiate(_buttonTemplate.gameObject, parent);
+            btnObj.name = "BrowseModsButton";
+            
+            var label = btnObj.GetComponentInChildren<TabletTextLabel>();
+             if (label != null)
+            {
+                label.text = "Browse Online";
+                label.transform.localScale = new Vector3(0.6f, 0.6f, 1f); 
+                
+                var txt = label.GetComponent<Text>();
+                if (txt != null)
+                {
+                    txt.horizontalOverflow = HorizontalWrapMode.Overflow;
+                    txt.verticalOverflow = VerticalWrapMode.Overflow;
+                    txt.alignment = TextAnchor.MiddleCenter;
+                }
+            }
+
+            var tabletBtn = btnObj.GetComponent<TabletButton>();
+            if (tabletBtn != null)
+            {
+                 if (tabletBtn.colorScheme == null) tabletBtn.colorScheme = _buttonTemplate.colorScheme;
+                 
+                 tabletBtn.OnClick = new TabletButtonEvent();
+                 tabletBtn.OnClick.AddListener((cursor) => {
+                     DestroyUI(Tablet.clickEventReceiver.modalOverlay);
+                     ModBrowserUI.ShowModBrowser();
+                 });
+                 tabletBtn.SetDisabled(false);
+                 tabletBtn.SetInteractable(true);
+                 
+                 // Rounded style
+                 tabletBtn.buttonType = TabletButton.ButtonType.Simple; 
+                 tabletBtn.ResetStyles();
+                 
+                 // Create custom color scheme to handle hover states natively
+                 var newScheme = UIHelpers.CloneColorScheme(_buttonTemplate.colorScheme, btnObj);
+                 
+                 Color normalColor = new Color(0.2f, 0.7f, 0.3f);
+                 Color hoverColor = new Color(0.3f, 0.8f, 0.4f); // Lighter green
+                 
+                 newScheme.buttonBgColor = normalColor;
+                 newScheme.buttonBgColor_Hover = hoverColor;
+                 newScheme.buttonBgColor_Disabled = new Color(0.2f, 0.2f, 0.2f);
+                 
+                 tabletBtn.colorScheme = newScheme;
+                 tabletBtn.ResetStyles();
+                 
+                 // Ensure background is enabled
+                 if (tabletBtn.background != null) {
+                     tabletBtn.background.color = normalColor;
+                 }
+            }
+            
+            // Positioning at Bottom Center
+            var rect = btnObj.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0);
+            rect.anchorMax = new Vector2(0.5f, 0);
+            rect.pivot = new Vector2(0.5f, 0);
+            
+            rect.anchoredPosition = new Vector2(0, 10); 
+            rect.sizeDelta = new Vector2(500, 80); // Even wider
+
+            // Remove LayoutElement
+            var le = btnObj.GetComponent<LayoutElement>();
+            if (le != null) UnityEngine.Object.Destroy(le);
+
+            // Ensure z order
+            btnObj.transform.SetAsLastSibling();
+            btnObj.SetActive(true);
+            _modButtons.Add(btnObj);
         }
 
         private static void CreateModButton(RectTransform parent, PluginInfo plugin)
@@ -260,6 +361,10 @@ namespace Rooster.UI
                 _scrollbarObj = null;
             }
             
+            foreach (var btn in _modButtons)
+            {
+                if (btn != null) UnityEngine.Object.DestroyImmediate(btn);
+            }
             _modButtons.Clear();
 
             if (modal != null && _originalSize.HasValue)

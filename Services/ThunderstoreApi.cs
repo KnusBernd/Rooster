@@ -107,11 +107,16 @@ namespace Rooster.Services
                 string verNum = ExtractJsonValue(firstVerObj, "version_number");
                 string dlUrl = ExtractJsonValue(firstVerObj, "download_url");
                 string websiteUrl = ExtractJsonValue(firstVerObj, "website_url");
+                string description = ExtractJsonValue(firstVerObj, "description");
+                string dateCreated = ExtractJsonValue(firstVerObj, "date_created");
                 
                 // Extract package metadata
                 string packageMeta = json.Substring(pkgStart, versionsKeyIdx - pkgStart);
                 string fullName = ExtractJsonValue(packageMeta, "full_name");
-                // website_url is in the version object, not package meta
+                string pkgDateUpdated = ExtractJsonValue(packageMeta, "date_updated"); // This might be on the package object
+                
+                // Prefer package update date, fallback to version creation date
+                string finalDate = pkgDateUpdated ?? dateCreated;
 
                 if (!string.IsNullOrEmpty(pkgName) && !string.IsNullOrEmpty(verNum))
                 {
@@ -151,6 +156,8 @@ namespace Rooster.Services
                         name = pkgName,
                         full_name = fullName ?? "",
                         website_url = websiteUrl ?? "",
+                        description = description ?? "",
+                        date_updated = finalDate ?? "",
                         latest = new ThunderstoreVersion
                         {
                             version_number = verNum,
@@ -168,6 +175,9 @@ namespace Rooster.Services
                 // Advance index
                 index = firstVerObjEnd + 1;
             }
+
+            // Sort by recently updated (descending)
+            packages.Sort((a, b) => string.Compare(b.date_updated, a.date_updated, StringComparison.Ordinal));
 
             return packages;
         }

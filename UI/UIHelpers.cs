@@ -88,5 +88,33 @@ namespace Rooster.UI
 
             return sbObj;
         }
+        public static TabletColorScheme CloneColorScheme(TabletColorScheme source, GameObject target)
+        {
+            var newScheme = target.AddComponent<TabletColorScheme>();
+            newScheme.bgColor = source.bgColor;
+            newScheme.groupBgColor = source.groupBgColor;
+            newScheme.buttonBgColor = source.buttonBgColor;
+            newScheme.buttonBgColor_Hover = source.buttonBgColor_Hover;
+            newScheme.buttonBgColor_Disabled = source.buttonBgColor_Disabled;
+            newScheme.buttonBgColor_TransparentHighlight = source.buttonBgColor_TransparentHighlight;
+            newScheme.buttonBgColor_Dangerous = source.buttonBgColor_Dangerous;
+            newScheme.buttonBgColor_Dangerous_Disabled = source.buttonBgColor_Dangerous_Disabled;
+            newScheme.buttonBgColor_Dangerous_Hover = source.buttonBgColor_Dangerous_Hover;
+            newScheme.mainTextColor = source.mainTextColor;
+            newScheme.mainTextColor_Disabled = source.mainTextColor_Disabled;
+            newScheme.mainTextColor_Modified = source.mainTextColor_Modified;
+            newScheme.mainTextColor_Modified_Disabled = source.mainTextColor_Modified_Disabled;
+            newScheme.subtitleColor = source.subtitleColor;
+            newScheme.subtitleColor_Disabled = source.subtitleColor_Disabled;
+            
+            newScheme.mainTextSize = source.mainTextSize;
+            newScheme.mainTextTinySize = source.mainTextTinySize;
+            newScheme.mainTextSmallSize = source.mainTextSmallSize;
+            newScheme.mainTextLargeSize = source.mainTextLargeSize;
+            newScheme.titleTextSize = source.titleTextSize;
+            newScheme.subtitleTextSize = source.subtitleTextSize;
+            
+            return newScheme;
+        }
     }
 }
