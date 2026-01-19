@@ -125,6 +125,9 @@ namespace Rooster.UI
 
             UnityEngine.Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
+            
+             // Explicitly reset scroll to top
+            if (scrollLayout.ScrollRect != null) scrollLayout.ScrollRect.verticalNormalizedPosition = 1f;
         }
 
         private static void CreateBrowseButton(RectTransform parent)
@@ -168,11 +171,7 @@ namespace Rooster.UI
                  tabletBtn.ResetStyles();
                  
                  // Create custom color scheme to handle hover states natively
-                 UIHelpers.ApplyButtonStyle(tabletBtn, 
-                    new Color(0.2f, 0.7f, 0.3f), // Normal Green
-                    new Color(0.3f, 0.8f, 0.4f), // Hover
-                    new Color(0.2f, 0.2f, 0.2f)  // Disabled
-                 );
+                 UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Success);
             }
             
             // Positioning at Bottom Center

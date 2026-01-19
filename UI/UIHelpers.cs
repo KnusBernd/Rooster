@@ -9,6 +9,48 @@ namespace Rooster.UI
         private static Texture2D _whiteTexture;
         private static Sprite _whiteSprite;
 
+        public struct ButtonTheme
+        {
+            public Color Normal;
+            public Color Hover;
+            public Color Disabled;
+
+            public ButtonTheme(Color normal, Color hover, Color disabled)
+            {
+                Normal = normal;
+                Hover = hover;
+                Disabled = disabled;
+            }
+        }
+
+        public static class Themes
+        {
+            public static readonly ButtonTheme Success = new ButtonTheme(
+                new Color(0.2f, 0.7f, 0.3f), 
+                new Color(0.3f, 0.8f, 0.4f), 
+                new Color(0.2f, 0.2f, 0.2f));
+
+            public static readonly ButtonTheme Danger = new ButtonTheme(
+                new Color(0.6f, 0.2f, 0.2f), 
+                new Color(0.7f, 0.3f, 0.3f), 
+                new Color(0.2f, 0.2f, 0.2f));
+
+            public static readonly ButtonTheme Warning = new ButtonTheme(
+                new Color(0.8f, 0.6f, 0.2f), 
+                new Color(0.9f, 0.7f, 0.3f), 
+                new Color(0.5f, 0.5f, 0.5f));
+
+            public static readonly ButtonTheme Neutral = new ButtonTheme(
+                new Color(0.25f, 0.25f, 0.25f), 
+                new Color(0.35f, 0.35f, 0.35f), 
+                new Color(0.15f, 0.15f, 0.15f));
+
+             public static readonly ButtonTheme Action = new ButtonTheme(
+                new Color(0.2f, 0.6f, 1f), 
+                new Color(0.3f, 0.7f, 1f), 
+                new Color(0.5f, 0.5f, 0.5f));
+        }
+
         public static Texture2D GetWhiteTexture()
         {
             if (_whiteTexture == null)
@@ -168,9 +210,12 @@ namespace Rooster.UI
              scrollRect.vertical = true;
              scrollRect.movementType = ScrollRect.MovementType.Clamped;
              scrollRect.scrollSensitivity = 30f;
+             scrollRect.verticalNormalizedPosition = 1f; // Always start at top
              
              // Scrollbar
              var scrollbarObj = CreateScrollbar(parent.GetComponent<RectTransform>(), scrollRect, namePrefix);
+             scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
+             
              var sbRect = scrollbarObj.GetComponent<RectTransform>();
              
              sbRect.anchorMin = new Vector2(1, 0);
@@ -191,20 +236,27 @@ namespace Rooster.UI
         }
         public static void AddText(Transform parent, string content, int fontSize, bool bold, Color color)
         {
+            CreateText(parent, content, fontSize, bold ? TextAnchor.MiddleLeft : TextAnchor.UpperLeft, color);
+        }
+
+        public static GameObject CreateText(Transform parent, string content, int fontSize, TextAnchor alignment, Color color, HorizontalWrapMode wrapMode = HorizontalWrapMode.Wrap)
+        {
             var obj = new GameObject("Text", typeof(RectTransform));
             obj.transform.SetParent(parent, false);
             var txt = obj.AddComponent<Text>();
-            txt.text = bold ? $"<b>{content}</b>" : content;
+            txt.text = content;
             txt.supportRichText = true;
             txt.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
             txt.fontSize = fontSize;
             txt.color = color;
-            txt.horizontalOverflow = HorizontalWrapMode.Wrap;
+            txt.alignment = alignment;
+            txt.horizontalOverflow = wrapMode;
             txt.verticalOverflow = VerticalWrapMode.Overflow;
 
             var layout = obj.AddComponent<LayoutElement>();
-            //layout.preferredHeight = fontSize + 10;
             layout.flexibleWidth = 1;
+            
+            return obj;
         }
 
         public static TabletButton CreateButton(Transform parent, TabletButton template, string text, float width, float height)
@@ -241,6 +293,11 @@ namespace Rooster.UI
             btnObj.SetActive(true);
             return tabletBtn;
         }
+        public static void ApplyTheme(TabletButton btn, ButtonTheme theme)
+        {
+            ApplyButtonStyle(btn, theme.Normal, theme.Hover, theme.Disabled);
+        }
+
         public static void ApplyButtonStyle(TabletButton btn, Color normal, Color hover, Color disabled)
         {
             if (btn == null) return;
@@ -299,6 +356,10 @@ namespace Rooster.UI
                 
             foreach(var fitter in container.GetComponents<ContentSizeFitter>())
                 UnityEngine.Object.DestroyImmediate(fitter);
+
+            // Remove ScrollRects to reset scrolling state
+            foreach(var scrollRect in container.GetComponents<ScrollRect>())
+                UnityEngine.Object.DestroyImmediate(scrollRect);
 
             // Ensure LayoutElement for parent compatibility
             var le = container.GetComponent<LayoutElement>() ?? container.AddComponent<LayoutElement>();

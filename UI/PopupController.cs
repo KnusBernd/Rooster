@@ -141,9 +141,12 @@ namespace Rooster.UI
                 modal.onOffContainer.gameObject.SetActive(false);
 
                 UpdateChecker.UpdateAll(
-                    (status) => {
+                    (info, status) => {
                         if (modal?.simpleMessageText != null)
-                            modal.simpleMessageText.text = status;
+                        {
+                            if (info != null) modal.simpleMessageText.text = $"{info.ModName}: {status}";
+                            else modal.simpleMessageText.text = status;
+                        }
                     },
                     () => {
                         _isUpdating = false;

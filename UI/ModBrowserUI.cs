@@ -16,6 +16,7 @@ namespace Rooster.UI
         private static ScrollRect _scrollRect;
         private static List<GameObject> _itemButtons = new List<GameObject>();
         private static Vector2? _originalSize;
+        private static float _lastScrollPos = 1f;
         
         private static List<ThunderstorePackage> _thunderstoreMods = new List<ThunderstorePackage>();
         private static List<ThunderstorePackage> _curatedMods = new List<ThunderstorePackage>();
@@ -37,7 +38,7 @@ namespace Rooster.UI
         }
 
 
-        public static void ShowModBrowser()
+        public static void ShowModBrowser(bool preserveScroll = false)
         {
             Patches.MainMenuPopupPatch.CurrentMenuState = Patches.MainMenuPopupPatch.MenuState.ModBrowser;
             
@@ -63,7 +64,7 @@ namespace Rooster.UI
             ApplyStyling(modal);
             
             // Initial Fetch
-            RoosterPlugin.Instance.StartCoroutine(FetchAndDisplay(false));
+            RoosterPlugin.Instance.StartCoroutine(FetchAndDisplay(false, preserveScroll));
             SetVisible(true); // Ensure visible
         }
 
@@ -72,7 +73,7 @@ namespace Rooster.UI
             DestroyUI(_currentModal);
         }
 
-        private static IEnumerator FetchAndDisplay(bool forceRefresh)
+        private static IEnumerator FetchAndDisplay(bool forceRefresh, bool preserveScroll = false)
         {
             RoosterPlugin.LogInfo($"ModBrowser: FetchAndDisplay Started (Force: {forceRefresh})");
             
@@ -132,15 +133,15 @@ namespace Rooster.UI
                     }
                 }
 
-                //  GITHUB FETCH
+             //  GITHUB FETCH
                 if (GitHubApi.IsCacheReady && !forceRefresh)
                 {
-                     RoosterPlugin.LogInfo($"ModBrowser: Using Startup GitHub Cache ({GitHubApi.CachedPackages.Count} items)");
+                     // Using cached GitHub list
                      _curatedMods = new List<ThunderstorePackage>(GitHubApi.CachedPackages);
                 }
                 else if (_curatedMods.Count > 0 && !forceRefresh)
                 {
-                     RoosterPlugin.LogInfo($"ModBrowser: Using local GitHub list ({_curatedMods.Count} items)");
+                     // Using local GitHub list
                 }
                 else
                 {
@@ -176,6 +177,17 @@ namespace Rooster.UI
             try 
             {
                 RefreshList();
+                
+                Canvas.ForceUpdateCanvases();
+                
+                if (preserveScroll && _scrollRect != null)
+                {
+                    _scrollRect.verticalNormalizedPosition = _lastScrollPos;
+                }
+                else if (_scrollRect != null)
+                {
+                    _scrollRect.verticalNormalizedPosition = 1f; // Force Top
+                }
             }
             catch(Exception ex)
             {
@@ -193,7 +205,6 @@ namespace Rooster.UI
 
         private static void HideLoading()
         {
-            RoosterPlugin.LogInfo("ModBrowser: Hiding loading text/spinner.");
             if (_currentModal != null && _currentModal.simpleMessageText != null) 
             _currentModal.simpleMessageText.gameObject.SetActive(false);
             
@@ -338,11 +349,7 @@ namespace Rooster.UI
             var tabletBtn = btnObj.GetComponent<TabletButton>();
             if (tabletBtn != null)
             {
-                  UIHelpers.ApplyButtonStyle(tabletBtn,
-                    new Color(0.8f, 0.6f, 0.2f), // Orange-ish
-                    new Color(0.9f, 0.7f, 0.3f),
-                    new Color(0.5f, 0.5f, 0.5f)
-                  );
+                  UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Warning);
                   
                   tabletBtn.OnClick = new TabletButtonEvent();
                   tabletBtn.OnClick.AddListener((cursor) => {
@@ -417,17 +424,8 @@ namespace Rooster.UI
             var tabletBtn = btnObj.GetComponent<TabletButton>();
             if (tabletBtn != null)
             {
-                 Color activeColor = new Color(0.2f, 0.6f, 1f); // Blue
-                 Color inactiveColor = new Color(0.5f, 0.5f, 0.5f); // Grey
-                 Color hoverColor = active ? new Color(0.3f, 0.7f, 1f) : new Color(0.6f, 0.6f, 0.6f);
-                 
-                 Color baseColor = active ? activeColor : inactiveColor;
-                 
-                 UIHelpers.ApplyButtonStyle(tabletBtn,
-                    baseColor,
-                    hoverColor,
-                    inactiveColor
-                 );
+                 var theme = active ? UIHelpers.Themes.Action : UIHelpers.Themes.Neutral;
+                 UIHelpers.ApplyTheme(tabletBtn, theme);
                  
                  tabletBtn.OnClick = new TabletButtonEvent();
                  tabletBtn.OnClick.AddListener((cursor) => {
@@ -448,22 +446,12 @@ namespace Rooster.UI
 
         private static void RefreshList()
         {
-            RoosterPlugin.LogInfo("ModBrowser: RefreshList");
-            if (_viewportObj == null) 
-            {
-                RoosterPlugin.LogError("ModBrowser: Viewport is null!");
-                return;
-            }
+            if (_viewportObj == null) return;
             
             var scrollRect = _viewportObj.transform.parent.GetComponent<ScrollRect>();
-            if (scrollRect == null || scrollRect.content == null) 
-            {
-                RoosterPlugin.LogError("ModBrowser: ScrollRect or Content is null!");
-                return;
-            }
+            if (scrollRect == null || scrollRect.content == null) return;
             
             var contentRect = scrollRect.content;
-            RoosterPlugin.LogInfo($"ModBrowser: Clearing content (children: {contentRect.childCount})");
             
             foreach (Transform child in contentRect)
             {
@@ -471,7 +459,6 @@ namespace Rooster.UI
             }
             
             var list = _isThunderstoreTab ? _thunderstoreMods : _curatedMods;
-            RoosterPlugin.LogInfo($"ModBrowser: Populating {list.Count} items. (Tab: {(_isThunderstoreTab ? "Thunderstore" : "GitHub")})");
             
             foreach(var pkg in list)
             {
@@ -494,12 +481,23 @@ namespace Rooster.UI
             var label = btnObj.GetComponentInChildren<TabletTextLabel>();
             if (label != null)
             {
-                label.text = $"{pkg.name.Replace('_', ' ')} v{pkg.latest.version_number}";
-                // Maybe append " (Installed)" if detected?
+                string categoryStr = (pkg.categories != null && pkg.categories.Count > 0) 
+                                     ? string.Join(", ", pkg.categories) 
+                                     : "Mod";
+                                     
+                label.text = $"{pkg.name.Replace('_', ' ')} v{pkg.latest.version_number}\n<i><size=18>{categoryStr}</size></i>";
+                
                 label.labelType = TabletTextLabel.LabelType.SmallText;
                 
                 var uiText = label.GetComponent<Text>();
-                if (uiText != null) uiText.supportRichText = true;
+                if (uiText != null) 
+                {
+                    uiText.supportRichText = true;
+                    // Ensure text can wrap if categories are long, or just let it overflow? 
+                    // Usually buttons have limited height. 
+                    // Let's force it to allow vertical overflow so the second line shows even if the button is tight.
+                    uiText.verticalOverflow = VerticalWrapMode.Overflow; 
+                }
             }
             
             var tabletBtn = btnObj.GetComponent<TabletButton>();
@@ -508,49 +506,33 @@ namespace Rooster.UI
                 if (tabletBtn.colorScheme == null) tabletBtn.colorScheme = _buttonTemplate.colorScheme;
                 
                 tabletBtn.OnClick = new TabletButtonEvent();
-                tabletBtn.OnClick.AddListener((cursor) => ModDetailsUI.ShowDetails(pkg));
+                tabletBtn.OnClick.AddListener((cursor) => {
+                    if (_scrollRect != null) _lastScrollPos = _scrollRect.verticalNormalizedPosition;
+                    ModDetailsUI.ShowDetails(pkg);
+                });
                 tabletBtn.SetDisabled(false);
                 tabletBtn.SetInteractable(true);
                 tabletBtn.ResetStyles();
                 
                 // Check installation status
-                bool isInstalled = false;
-                if (UpdateChecker.MatchedPackages != null)
-                {
-                    foreach (var installedPkg in UpdateChecker.MatchedPackages.Values)
-                    {
-                        if (installedPkg.full_name == pkg.full_name)
-                        {
-                            isInstalled = true;
-                            break;
-                        }
-                    }
-                }
+                bool isInstalled = UpdateChecker.IsPackageInstalled(pkg.full_name);
                 
-                Color normalColor;
-                Color hoverColor;
+                UIHelpers.ButtonTheme theme;
                 
                 if (isInstalled)
                 {
-                    normalColor = new Color(0.2f, 0.7f, 0.3f); // Standard Green for installed
-                    hoverColor = new Color(0.3f, 0.8f, 0.4f);
+                    theme = UIHelpers.Themes.Success;
                 }
                 else if (UpdateChecker.PendingInstalls.Contains(pkg.full_name))
                 {
-                    normalColor = new Color(0.8f, 0.6f, 0.2f); // Orange/Amber for Pending
-                    hoverColor = new Color(0.9f, 0.7f, 0.3f);
+                    theme = UIHelpers.Themes.Warning;
                 }
                 else
                 {
-                    normalColor = new Color(0.8f, 0.8f, 0.8f); // Grey
-                    hoverColor = new Color(0.9f, 0.9f, 0.9f); // Lighter Grey
+                    theme = UIHelpers.Themes.Neutral;
                 }
                 
-                UIHelpers.ApplyButtonStyle(tabletBtn,
-                    normalColor,
-                    hoverColor,
-                    normalColor
-                );
+                UIHelpers.ApplyTheme(tabletBtn, theme);
              }
 
              var le = btnObj.GetComponent<LayoutElement>() ?? btnObj.AddComponent<LayoutElement>();

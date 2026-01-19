@@ -21,6 +21,11 @@ namespace Rooster
         public static List<ModUpdateInfo> PendingUpdates = new List<ModUpdateInfo>();
         public static HashSet<string> PendingInstalls = new HashSet<string>();
 
+        public static HashSet<string> InstalledPackageIds = new HashSet<string>();
+
+        public static bool IsModInstalled(string guid) => MatchedPackages.ContainsKey(guid);
+        public static bool IsPackageInstalled(string fullName) => InstalledPackageIds.Contains(fullName);
+
         /// <summary>Runs the update check process as a coroutine.</summary>
         public static IEnumerator CheckForUpdates()
         {
@@ -46,6 +51,7 @@ namespace Rooster
 
             PendingUpdates.Clear();
             MatchedPackages.Clear();
+            InstalledPackageIds.Clear();
 
             List<ModUpdateInfo> manualUpdates = new List<ModUpdateInfo>();
             List<ModUpdateInfo> autoUpdates = new List<ModUpdateInfo>();
@@ -61,9 +67,21 @@ namespace Rooster
 
                 ThunderstorePackage matchedPkg = ModMatcher.FindPackage(plugin, CachedPackages);
 
+                if (matchedPkg == null && plugin.Metadata.Name.IndexOf("RemovePlayerPlacements", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    RoosterPlugin.LogWarning($"[DEBUG] Failed to find match for 'RemovePlayerPlacements' (GUID: {guid}). Cached Packages: {CachedPackages?.Count}");
+                }
+
                 if (matchedPkg != null)
                 {
+                    // Debug log for RemovePlayerPlacements to trace the issue
+                    if (plugin.Metadata.Name.IndexOf("RemovePlayerPlacements", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        RoosterPlugin.LogInfo($"[DEBUG] Matched 'RemovePlayerPlacements' to '{matchedPkg.full_name}'. Latest: {matchedPkg.latest?.version_number}");
+                    }
+
                     MatchedPackages[guid] = matchedPkg;
+                    InstalledPackageIds.Add(matchedPkg.full_name);
 
                     // Fetch fresh version from API (bypasses CDN cache) in PARALLEL
                     string[] parts = matchedPkg.full_name.Split('-');
@@ -99,11 +117,18 @@ namespace Rooster
                 string modName = plugin.Metadata.Name;
 
                 var updateInfo = VersionComparer.CheckForUpdate(plugin, matchedPkg);
+                
+                if (plugin.Metadata.Name.IndexOf("RemovePlayerPlacements", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                     RoosterPlugin.LogInfo($"[DEBUG] Version Check for {plugin.Metadata.Name}: Local={plugin.Metadata.Version}, Remote={matchedPkg.latest.version_number}, HasUpdate={updateInfo != null}");
+                }
+
                 if (updateInfo != null)
                 {
                     if (RoosterConfig.IsModIgnored(guid) || UpdateLoopPreventer.IsVersionIgnored(guid, matchedPkg.latest.version_number))
                     {
-                        // Update ignored
+                        // Update ignored code path
+                        RoosterPlugin.LogWarning($"[DEBUG] Update ignored for {modName} ({guid}). ConfigIgnored: {RoosterConfig.IsModIgnored(guid)}, LoopIgnored: {UpdateLoopPreventer.IsVersionIgnored(guid, matchedPkg.latest.version_number)}");
                     }
                     else if (RoosterConfig.IsModAutoUpdate(guid))
                     {
@@ -117,21 +142,12 @@ namespace Rooster
                 }
             }
             
-            // FAKE UPDATE SCENARIO FOR TESTING
-            if (manualUpdates.Count == 0 && autoUpdates.Count == 0)
-            {
-                 manualUpdates.Add(new ModUpdateInfo {
-                        ModName = "Fake Update Mod",
-                        Version = "1.0.0",
-                        PluginInfo = null,
-                        DownloadUrl = "" 
-                 });
-            }
+
             
             if (autoUpdates.Count > 0)
             {
                 PendingUpdates.AddRange(autoUpdates);
-                RoosterPlugin.Instance.StartCoroutine(UpdateAllCoroutine(autoUpdates, (status) => {}, () => {
+                RoosterPlugin.Instance.StartCoroutine(UpdateAllCoroutine(autoUpdates, (info, status) => {}, () => {
                     RestartRequired = true;
                     Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
                 }));
@@ -146,89 +162,125 @@ namespace Rooster
             if (manualUpdates.Count > 0)
             {
                 try {
-                     if (UserMessageManager.Instance != null && UserMessageManager.Instance.MessageHolderPrefab != null)
-                        UserMessageManager.Instance.UserMessage("Mod Updates found!", 3.0f, UserMessageManager.UserMsgPriority.lo, false);
+                try {
+                     // Notification removed as per user request
+                } catch {}
                 } catch {}
                 Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
             }
             else
             {
                 try {
-                     if (UserMessageManager.Instance != null && UserMessageManager.Instance.MessageHolderPrefab != null)
-                        UserMessageManager.Instance.UserMessage("No Mod Updates found.", 3.0f, UserMessageManager.UserMsgPriority.lo, false);
+                try {
+                     // Notification removed as per user request
+                } catch {}
                 } catch {}
             }
         }
+
+
 
         private static IEnumerator KeepAliveNotification()
         {
             while (!CheckComplete)
             {
-                // Pulse the notification every second to keep it alive
-                // We use reflection/TryCatch just in case UserMessageManager isn't ready
                 if (UserMessageManager.Instance != null && UserMessageManager.Instance.MessageHolderPrefab != null)
                 {
-                     // Use a short duration (2s) and refresh it every 1s
-                    UserMessageManager.Instance.UserMessage("Checking for Mod Updates...", 2.0f, UserMessageManager.UserMsgPriority.lo, false);
+                    // Notification removed as per user request
                 }
-
                 yield return new WaitForSecondsRealtime(1.0f);
             }
         }
 
         /// <summary>Initiates mass update for all pending updates.</summary>
-        public static void UpdateAll(Action<string> onStatusUpdate, Action onComplete)
+        /// <summary>Initiates mass update for all pending updates.</summary>
+        public static void UpdateAll(Action<ModUpdateInfo, string> onStatusUpdate, Action onComplete)
         {
             RoosterPlugin.Instance.StartCoroutine(UpdateAllCoroutine(PendingUpdates, onStatusUpdate, onComplete));
         }
 
-        private static IEnumerator UpdateAllCoroutine(List<ModUpdateInfo> updates, Action<string> onStatusUpdate, Action onComplete)
+        private static IEnumerator UpdateAllCoroutine(List<ModUpdateInfo> upgradesRaw, Action<ModUpdateInfo, string> onStatusUpdate, Action onComplete)
         {
+            // Defensive Copy
+            var updates = new List<ModUpdateInfo>(upgradesRaw);
             RoosterPlugin.LogInfo($"Starting Mass Update for {updates.Count} mods.");
-            
+
+            yield return null; // Ensure next frame
+
             foreach (var update in updates)
             {
                 if (string.IsNullOrEmpty(update.DownloadUrl))
                 {
-                    onStatusUpdate?.Invoke($"Skipping {update.ModName} (No URL)");
+                    onStatusUpdate?.Invoke(update, "Skipped (No URL)");
                     continue;
                 }
 
-                onStatusUpdate?.Invoke($"Downloading {update.ModName}...");
+                bool downloadSuccess = false;
+
+                try 
+                {
+                    onStatusUpdate?.Invoke(update, "Downloading...");
+                }
+                catch { /* Ignore callback errors */ }
 
                 string cacheDir = Path.Combine(Paths.BepInExRootPath, "cache");
                 string zipPath = Path.Combine(cacheDir, $"{update.ModName}_{update.Version}.zip");
 
-                bool downloadSuccess = false;
+                // Yield cannot be in try-catch
                 yield return UpdateDownloader.DownloadFile(update.DownloadUrl, zipPath, (success, error) => 
                 {
                     downloadSuccess = success;
-                    if (!success) onStatusUpdate?.Invoke($"Download failed: {error}");
+                    if (!success) 
+                    {
+                        try { onStatusUpdate?.Invoke(update, "Download Failed"); } catch {}
+                    }
                 });
 
                 if (downloadSuccess)
                 {
-                    onStatusUpdate?.Invoke($"Installing {update.ModName}...");
                     bool installSuccess = false;
-                    
+                    try { onStatusUpdate?.Invoke(update, "Installing..."); } catch {}
+
                     UpdateInstaller.InstallMod(zipPath, update.PluginInfo, (success, error) =>
                     {
-                        if (success) UpdateLoopPreventer.RegisterPendingInstall(update.PluginInfo.Metadata.GUID, update.Version);
-                        
-                        installSuccess = success;
-                        if (!success) onStatusUpdate?.Invoke($"Install failed: {error}");
+                        try 
+                        {
+                            if (success) UpdateLoopPreventer.RegisterPendingInstall(update.PluginInfo.Metadata.GUID, update.Version);
+                            
+                            installSuccess = success;
+                            if (!success) onStatusUpdate?.Invoke(update, "Install Failed");
+                        }
+                        catch (Exception ex)
+                        {
+                            RoosterPlugin.LogError($"Install Callback Error: {ex}");
+                        }
                     });
 
-                    if (installSuccess) onStatusUpdate?.Invoke($"Updated {update.ModName}!");
+                    if (installSuccess) 
+                    {
+                        try { onStatusUpdate?.Invoke(update, "Ready"); } catch {}
+                    }
                 }
             }
 
-            onStatusUpdate?.Invoke("All updates processed. Restart required.");
-            RestartRequired = true;
-            PendingUpdates.Clear();
-            
-            yield return null; 
-            onComplete?.Invoke();
+            try 
+            {
+                onStatusUpdate?.Invoke(null, "All updates processed. Restart required.");
+                RestartRequired = true;
+                PendingUpdates.Clear();
+            }
+            catch (Exception ex)
+            {
+                RoosterPlugin.LogError($"Finalizing Update Error: {ex}");
+            }
+
+            // ALWAYS fire completion
+            try {
+                RoosterPlugin.LogInfo("UpdateAllCoroutine: Invoking onComplete callback.");
+                onComplete?.Invoke();
+            } catch (Exception ex2) {
+                 RoosterPlugin.LogError($"onComplete callback failed: {ex2}");
+            }
         }
     }
 }

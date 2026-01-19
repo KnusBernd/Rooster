@@ -37,7 +37,7 @@ namespace Rooster.UI
             modal.okButton.OnClick = new TabletButtonEvent();
             modal.okButton.OnClick.AddListener((cursor) => {
                 Close();
-                ModBrowserUI.ShowModBrowser();
+                ModBrowserUI.ShowModBrowser(true);
             });
 
             CreateDetailsUI(modal, pkg);
@@ -91,47 +91,30 @@ namespace Rooster.UI
             var label = tabletBtn.GetComponentInChildren<TabletTextLabel>();
 
             // Check installation status
-            bool isInstalled = false;
-            if (UpdateChecker.MatchedPackages != null)
-            {
-                foreach (var installedPkg in UpdateChecker.MatchedPackages.Values)
-                {
-                    if (installedPkg.full_name == pkg.full_name)
-                    {
-                        isInstalled = true;
-                        break;
-                    }
-                }
-            }
+            bool isInstalled = UpdateChecker.IsPackageInstalled(pkg.full_name);
 
             if (tabletBtn != null)
             {
                 var newScheme = tabletBtn.colorScheme; // Already cloned by CreateButton
-                
-                Color normalColor = new Color(0.2f, 0.7f, 0.3f); // Green
-                Color hoverColor = new Color(0.3f, 0.8f, 0.4f);
-                Color disabledColor = new Color(0.3f, 0.3f, 0.3f);
-
-                UIHelpers.ApplyButtonStyle(tabletBtn,
-                    normalColor,
-                    hoverColor,
-                    disabledColor
-                );
                 
                 if (isInstalled)
                 {
                     label.text = "Installed";
                     tabletBtn.SetInteractable(false);
                     tabletBtn.SetDisabled(true);
+                    UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Success);
                 }
                 else if (UpdateChecker.PendingInstalls.Contains(pkg.full_name))
                 {
                     label.text = "Pending Restart";
                     tabletBtn.SetInteractable(false);
                     tabletBtn.SetDisabled(true);
+                    UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Warning);
                 }
                 else
                 {
+                    UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Success);
+
                     tabletBtn.OnClick = new TabletButtonEvent();
                     tabletBtn.OnClick.AddListener((cursor) => {
                         label.text = "Installing...";
@@ -139,7 +122,7 @@ namespace Rooster.UI
                         tabletBtn.SetDisabled(true);
                         
                         // Force update visual state
-                        if (tabletBtn.background != null) tabletBtn.background.color = disabledColor;
+                        if (tabletBtn.background != null) tabletBtn.background.color = UIHelpers.Themes.Success.Disabled;
 
                         string url = pkg.latest.download_url;
                         string zipName = $"{pkg.name}.zip";
@@ -154,8 +137,10 @@ namespace Rooster.UI
                                          label.text = "Pending Restart";
                                          UpdateChecker.PendingInstalls.Add(pkg.full_name);
                                          
+                                         UpdateChecker.PendingInstalls.Add(pkg.full_name);
+                                         
                                          // Update color scheme to disabled state
-                                         UIHelpers.ApplyButtonStyle(tabletBtn, disabledColor, disabledColor, disabledColor);
+                                         UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Warning); // Or disabled style
                                      }
                                      else
                                      {

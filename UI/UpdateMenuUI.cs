@@ -14,37 +14,27 @@ namespace Rooster.UI
     /// </summary>
     public class UpdateMenuUI
     {
-        private static float baseFontSize = -1f;
+
+        private static Dictionary<ModUpdateInfo, Text> _statusLabels = new Dictionary<ModUpdateInfo, Text>();
+
 
         public static void ShowUpdateMenu()
         {
             if (Tablet.clickEventReceiver == null || Tablet.clickEventReceiver.modalOverlay == null) return;
 
             var modal = Tablet.clickEventReceiver.modalOverlay;
-            
-            var lines = new List<string>();
-            foreach(var updateInfo in UpdateChecker.PendingUpdates)
-            {
-                string currentVer = updateInfo.PluginInfo?.Metadata?.Version?.ToString() ?? "0.0.0";
-                lines.Add($"<b>{updateInfo.ModName}</b>");
-                lines.Add($"   <color=grey>v{currentVer}</color> -> <color=green>v{updateInfo.Version}</color>");
-                lines.Add("");
-            }
-
-            string fullText = string.Join("\n", lines.ToArray());
-            
             var count = UpdateChecker.PendingUpdates.Count;
             
-            UIHelpers.SetupModal(modal, new Vector2(900, 700), $"{count} Update{(count == 1 ? "" : "s")} Pending", null);
+            UIHelpers.SetupModal(modal, new Vector2(1200, 800), $"{count} Update{(count == 1 ? "" : "s")} Pending", null);
             
             Patches.MainMenuPopupPatch.CurrentMenuState = Patches.MainMenuPopupPatch.MenuState.UpdateMenu;
 
             modal.okButtonContainer.gameObject.SetActive(false);
-            modal.onOffContainer.gameObject.SetActive(false); // Hide default buttons
+            modal.onOffContainer.gameObject.SetActive(false); 
             
             try
             {
-                ApplyStyling(modal, fullText);
+                ApplyStyling(modal);
             }
             catch (Exception ex)
             {
@@ -52,7 +42,7 @@ namespace Rooster.UI
             }
         }
 
-        private static void ApplyStyling(TabletModalOverlay modal, string content)
+        private static void ApplyStyling(TabletModalOverlay modal)
         {
             DestroyUI();
             
@@ -61,29 +51,76 @@ namespace Rooster.UI
 
             UIHelpers.CleanContainer(container.gameObject);
 
-            // Unified Scroll Layout
-            // Top: 20
-            // Bottom: 100 (Leave room for buttons)
-            // Side: 20 -> Results in Right Margin 60 (40 scrollbar + 20 padding)
-            var layout = UIHelpers.CreateScrollLayout(container.gameObject, "UpdateMenu", 20, 100, 20, 40, 10);
+            var layout = UIHelpers.CreateScrollLayout(container.gameObject, "UpdateMenu", 20, 100, 20, 60, 10);
             
             var contentObj = layout.Content.gameObject;
             var vLayout = contentObj.AddComponent<VerticalLayoutGroup>();
             vLayout.childControlWidth = true;
-            vLayout.childControlHeight = true;
+            vLayout.childControlHeight = false; 
             vLayout.childForceExpandWidth = true;
             vLayout.childForceExpandHeight = false;
+            vLayout.spacing = 5;
             
             var contentFitter = contentObj.AddComponent<ContentSizeFitter>();
             contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             
-            // Add text to content
-            int fontSize = (int)(baseFontSize > 0 ? baseFontSize * 0.8f : 36);
-            UIHelpers.AddText(layout.Content, content, fontSize, false, Color.white);
+            foreach (var update in UpdateChecker.PendingUpdates)
+            {
+                CreateUpdateRow(layout.Content, update);
+            }
             
             LayoutRebuilder.ForceRebuildLayoutImmediate(layout.Content);
             
+            // Explicitly reset scroll to top
+            if (layout.ScrollRect != null) layout.ScrollRect.verticalNormalizedPosition = 1f;
+
             CreateActionButtons(container.GetComponent<RectTransform>());
+        }
+
+        private static void CreateUpdateRow(RectTransform parent, ModUpdateInfo info)
+        {
+            var rowObj = new GameObject($"Row_{info.ModName}");
+            rowObj.transform.SetParent(parent, false);
+            
+            var le = rowObj.AddComponent<LayoutElement>();
+            le.minHeight = 60;
+            le.preferredHeight = 60;
+            le.flexibleWidth = 1;
+
+            var hLayout = rowObj.AddComponent<HorizontalLayoutGroup>();
+            hLayout.childControlWidth = true; 
+            hLayout.childForceExpandWidth = false;
+            hLayout.spacing = 15;
+            hLayout.padding = new RectOffset(20, 20, 0, 0);
+
+            // 1. Mod Name (Left) - HUGE
+            var nameObj = UIHelpers.CreateText(rowObj.transform, info.ModName, 32, TextAnchor.MiddleLeft, Color.white, HorizontalWrapMode.Overflow);
+            var nameLe = nameObj.AddComponent<LayoutElement>();
+            nameLe.preferredWidth = 600;
+            nameLe.minWidth = 400; // Ensure it doesn't shrink to zero
+            nameLe.flexibleWidth = 1; // Allow flexibility if space permits
+
+            // 2. Version (Center-Left)
+            string verText = $"<color=grey>v{info.PluginInfo?.Metadata?.Version?.ToString() ?? "?"}</color> -> <color=green>v{info.Version}</color>";
+            var verObj = UIHelpers.CreateText(rowObj.transform, verText, 28, TextAnchor.MiddleLeft, Color.white, HorizontalWrapMode.Overflow);
+            var verLe = verObj.AddComponent<LayoutElement>();
+            verLe.preferredWidth = 300;
+            verLe.minWidth = 200;
+
+            // 3. Spacer
+            var spacer = new GameObject("Spacer");
+            spacer.transform.SetParent(rowObj.transform, false);
+            var spacerLe = spacer.AddComponent<LayoutElement>();
+            spacerLe.flexibleWidth = 10; // Push status to right
+
+            // 4. Status (Right)
+            var statusObj = UIHelpers.CreateText(rowObj.transform, "Waiting", 28, TextAnchor.MiddleRight, Color.grey, HorizontalWrapMode.Overflow);
+            var statusLe = statusObj.AddComponent<LayoutElement>();
+            statusLe.preferredWidth = 250;
+            statusLe.minWidth = 150;
+            
+            var statusText = statusObj.GetComponent<Text>();
+            _statusLabels[info] = statusText;
         }
 
         private static void CreateActionButtons(RectTransform parent)
@@ -105,11 +142,7 @@ namespace Rooster.UI
             var le1 = updateBtn.GetComponent<LayoutElement>();
             if (le1 != null) UnityEngine.Object.Destroy(le1);
             
-            UIHelpers.ApplyButtonStyle(updateBtn, 
-                new Color(0.2f, 0.7f, 0.3f), // Green
-                new Color(0.3f, 0.8f, 0.4f), 
-                new Color(0.2f, 0.2f, 0.2f)
-            );
+            UIHelpers.ApplyTheme(updateBtn, UIHelpers.Themes.Success);
             
             var updateLabel = updateBtn.GetComponentInChildren<TabletTextLabel>();
             if(updateLabel)
@@ -142,31 +175,30 @@ namespace Rooster.UI
             updateBtn.OnClick = new TabletButtonEvent();
             updateBtn.OnClick.AddListener((cursor) => {
                 updateBtn.SetInteractable(false);
-                updateLabel.text = "Updating...";
+                updateLabel.text = "Processing...";
+                
                 UpdateChecker.UpdateAll(
-                    (status) => { /* Update status text if we had a status bar */ },
+                    (info, status) => { 
+                        if (_statusLabels.TryGetValue(info, out var label))
+                        {
+                            label.text = status;
+                            if (status == "Ready") label.color = UIHelpers.Themes.Success.Normal;
+                            else if (status.Contains("Failed") || status.Contains("Skipped")) label.color = UIHelpers.Themes.Danger.Normal;
+                            else if (status == "Downloading..." || status == "Installing...") label.color = UIHelpers.Themes.Warning.Normal;
+                            else label.color = Color.white;
+                        }
+                    },
                     () => {
                         // Transform button to "Restart Game"
                         updateLabel.text = "Restart Game";
                         updateBtn.SetInteractable(true);
                         
-                        // Change style to "Success/Action" style (Green -> Lighter Green)
-                        // This indicates completion and encourages the user to proceed.
-                        UIHelpers.ApplyButtonStyle(updateBtn, 
-                            new Color(0.2f, 0.8f, 0.2f), // Green (Normal)
-                            new Color(0.3f, 0.9f, 0.3f), // Lighter Green (Hover)
-                            new Color(0.5f, 0.5f, 0.5f) // Grey (Disabled)
-                        );
+                        UIHelpers.ApplyTheme(updateBtn, UIHelpers.Themes.Success);
                         
-                        // Rebind click to Quit
                         updateBtn.OnClick = new TabletButtonEvent();
                         updateBtn.OnClick.AddListener((c) => {
                             Application.Quit();
                         });
-
-                        // Show toast
-                        if (UserMessageManager.Instance != null)
-                             UserMessageManager.Instance.UserMessage("Updates Complete! Please Restart.", 5.0f, UserMessageManager.UserMsgPriority.hi, false);
                     }
                 );
             });
@@ -187,11 +219,7 @@ namespace Rooster.UI
             var le2 = dismissBtn.GetComponent<LayoutElement>();
             if (le2 != null) UnityEngine.Object.Destroy(le2);
 
-            UIHelpers.ApplyButtonStyle(dismissBtn, 
-                new Color(0.6f, 0.2f, 0.2f), // Redish
-                new Color(0.7f, 0.3f, 0.3f), 
-                new Color(0.2f, 0.2f, 0.2f)
-            );
+            UIHelpers.ApplyTheme(dismissBtn, UIHelpers.Themes.Danger);
             
             var dismissLabel = dismissBtn.GetComponentInChildren<TabletTextLabel>();
             if(dismissLabel) 
@@ -279,6 +307,8 @@ namespace Rooster.UI
                 if (btn != null) UnityEngine.Object.Destroy(btn);
             }
             _modButtons.Clear();
+            _statusLabels.Clear();
+
         }
     }
 }
