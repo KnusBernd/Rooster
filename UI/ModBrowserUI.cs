@@ -40,7 +40,7 @@ namespace Rooster.UI
             // Ensure ModMenu is cleaned up
             ModMenuUI.DestroyUI(modal);
             
-            modal.ShowSimpleMessage("Loading Mods...", "Please wait...", () => { });
+            modal.ShowSimpleMessage("Mod Browser", "", () => { });
             modal.okButtonContainer.gameObject.SetActive(true);
             _buttonTemplate = modal.okButton;
             
@@ -72,15 +72,8 @@ namespace Rooster.UI
             
             if (_refreshButton != null) _refreshButton.SetInteractable(false);
             
-            // Show Loading Indicator
-            if (forceRefresh || (_thunderstoreMods.Count == 0 && _curatedMods.Count == 0))
-            {
-                if (_currentModal != null) 
-                {
-                    _currentModal.simpleMessageText.gameObject.SetActive(true);
-                    _currentModal.ShowSimpleMessage("Loading Mod List...", "Fetching from Thunderstore & GitHub...", () => {});
-                }
-            }
+            // Loading Indicator removed per user request
+
 
             // FORCE REFRESH: Clear Local Caches
             if (forceRefresh)
@@ -91,65 +84,82 @@ namespace Rooster.UI
                 GitHubApi.CachedPackages.Clear();
             }
 
-            // 1. THUNDERSTORE FETCH
-            if (_thunderstoreMods.Count > 0 && !forceRefresh)
-            {
-                 RoosterPlugin.LogInfo($"ModBrowser: Using cached Thunderstore list ({_thunderstoreMods.Count} items)");
-            }
-            else
-            {
-                bool tsComplete = false;
-                string tsError = null;
-                RoosterPlugin.Instance.StartCoroutine(ThunderstoreApi.FetchAllPackages((packages, error) => {
-                    if (error != null) tsError = error;
-                    else _thunderstoreMods = packages;
-                    tsComplete = true;
-                }));
-                yield return new WaitUntil(() => tsComplete);
-
-                if (tsError != null)
+                // 1. THUNDERSTORE FETCH
+                if (_thunderstoreMods.Count > 0 && !forceRefresh)
                 {
-                    ShowErrorModal($"Thunderstore Error:\n{tsError}");
-                    // Ensure we clean up even on error
-                    HideLoading();
-                    if (_refreshButton != null) _refreshButton.SetInteractable(true);
-                    yield break; 
+                     RoosterPlugin.LogInfo($"ModBrowser: Using cached Thunderstore list ({_thunderstoreMods.Count} items)");
                 }
-            }
+                else
+                {
+                    bool tsComplete = false;
+                    string tsError = null;
+                    RoosterPlugin.Instance.StartCoroutine(ThunderstoreApi.FetchAllPackages((packages, error) => {
+                        if (error != null) tsError = error;
+                        else _thunderstoreMods = packages;
+                        tsComplete = true;
+                    }));
+                    
+                    // Wait with Timeout (45s)
+                    float tsTimeout = UnityEngine.Time.realtimeSinceStartup + 45f;
+                    yield return new WaitUntil(() => tsComplete || UnityEngine.Time.realtimeSinceStartup > tsTimeout);
 
-            // 2. GITHUB FETCH
-            if (GitHubApi.IsCacheReady && !forceRefresh)
-            {
-                 RoosterPlugin.LogInfo($"ModBrowser: Using Startup GitHub Cache ({GitHubApi.CachedPackages.Count} items)");
-                 _curatedMods = new List<ThunderstorePackage>(GitHubApi.CachedPackages);
-            }
-            else if (_curatedMods.Count > 0 && !forceRefresh)
-            {
-                 RoosterPlugin.LogInfo($"ModBrowser: Using local GitHub list ({_curatedMods.Count} items)");
-            }
-            else
-            {
-                bool ghComplete = false;
-                string ghError = null;
-                
-                RoosterPlugin.Instance.StartCoroutine(GitHubApi.FetchCuratedList((packages, error) => {
-                    if (error != null) ghError = error;
-                    else 
+                    if (!tsComplete)
                     {
-                        _curatedMods = packages;
-                        GitHubApi.CachedPackages = packages;
-                        GitHubApi.IsCacheReady = true; 
+                        tsError = "Request timed out.";
+                        RoosterPlugin.LogWarning("ModBrowser: Thunderstore fetch timed out.");
                     }
-                    ghComplete = true;
-                }));
-                
-                yield return new WaitUntil(() => ghComplete);
-                
-                if (ghError != null)
-                {
-                    ShowErrorModal($"GitHub Error:\n{ghError}");
+
+                    if (tsError != null)
+                    {
+                        ShowErrorModal($"Thunderstore Error:\n{tsError}");
+                        // Ensure we clean up even on error
+                        HideLoading();
+                        if (_refreshButton != null) _refreshButton.SetInteractable(true);
+                        yield break; 
+                    }
                 }
-            }
+
+                // 2. GITHUB FETCH
+                if (GitHubApi.IsCacheReady && !forceRefresh)
+                {
+                     RoosterPlugin.LogInfo($"ModBrowser: Using Startup GitHub Cache ({GitHubApi.CachedPackages.Count} items)");
+                     _curatedMods = new List<ThunderstorePackage>(GitHubApi.CachedPackages);
+                }
+                else if (_curatedMods.Count > 0 && !forceRefresh)
+                {
+                     RoosterPlugin.LogInfo($"ModBrowser: Using local GitHub list ({_curatedMods.Count} items)");
+                }
+                else
+                {
+                    bool ghComplete = false;
+                    string ghError = null;
+                    
+                    RoosterPlugin.Instance.StartCoroutine(GitHubApi.FetchCuratedList((packages, error) => {
+                        if (error != null) ghError = error;
+                        else 
+                        {
+                            _curatedMods = packages;
+                            GitHubApi.CachedPackages = packages;
+                            GitHubApi.IsCacheReady = true; 
+                        }
+                        ghComplete = true;
+                    }));
+                    
+                    // Wait with Timeout (45s)
+                    float ghTimeout = UnityEngine.Time.realtimeSinceStartup + 45f;
+                    yield return new WaitUntil(() => ghComplete || UnityEngine.Time.realtimeSinceStartup > ghTimeout);
+                    
+                    if (!ghComplete)
+                    {
+                         ghError = "Request timed out.";
+                         RoosterPlugin.LogWarning("ModBrowser: GitHub fetch timed out.");
+                    }
+                    
+                    if (ghError != null)
+                    {
+                        ShowErrorModal($"GitHub Error:\n{ghError}");
+                    }
+                }
             
             try 
             {
@@ -291,11 +301,11 @@ namespace Rooster.UI
             btnObj.name = "RefreshButton";
              
             var rect = btnObj.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0.5f, 1);
-            rect.anchorMax = new Vector2(0.5f, 1);
-            rect.pivot = new Vector2(0.5f, 1);
+            rect.anchorMin = Vector2.one; // Top-Right
+            rect.anchorMax = Vector2.one; // Top-Right
+            rect.pivot = Vector2.one;     // Top-Right pivot
             rect.sizeDelta = new Vector2(200, 80); 
-            rect.anchoredPosition = new Vector2(380, -10); // Far Right
+            rect.anchoredPosition = new Vector2(-30, -30); // Padding from edge
 
             var label = btnObj.GetComponentInChildren<TabletTextLabel>();
              if (label != null)
