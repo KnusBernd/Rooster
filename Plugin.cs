@@ -33,6 +33,7 @@ namespace Rooster
             // Initialize loop preventer here ensuring all plugins are loaded
             UpdateLoopPreventer.Init();
             StartCoroutine(UpdateChecker.CheckForUpdates());
+            StartCoroutine(GitHubApi.BuildCache());
 
             if (RoosterConfig.DeveloperMode.Value)
             {

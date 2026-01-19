@@ -96,6 +96,7 @@
     <Compile Include="Patches\MainMenuButtonPatch.cs" />
     <Compile Include="Patches\PickCursorScrollPatch.cs" />
     <Compile Include="Models\ThunderstorePackage.cs" />
+    <Compile Include="Models\RoosterCache.cs" />
     <Compile Include="Models\ThunderstoreVersion.cs" />
     <Compile Include="Models\ModUpdateInfo.cs" />
     <Compile Include="Services\ThunderstoreApi.cs" />

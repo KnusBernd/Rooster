@@ -30,7 +30,8 @@ namespace Rooster
             // Start notification loop
             Coroutine notificationRoutine = RoosterPlugin.Instance.StartCoroutine(KeepAliveNotification());
 
-            yield return ThunderstoreApi.FetchAllPackages((packages) => {
+            yield return ThunderstoreApi.FetchAllPackages((packages, error) => {
+                if (error != null) RoosterPlugin.LogError($"Thunderstore Fetch Error: {error}");
                 CachedPackages = packages;
             });
 

@@ -16,7 +16,7 @@ namespace Rooster.Services
         public const string API_URL = "https://thunderstore.io/c/ultimate-chicken-horse/api/v1/package/";
 
         /// <summary>Fetches all packages from Thunderstore with retry logic.</summary>
-        public static IEnumerator FetchAllPackages(Action<List<ThunderstorePackage>> onComplete)
+        public static IEnumerator FetchAllPackages(Action<List<ThunderstorePackage>, string> onComplete)
         {
             int maxRetries = 3;
             for (int i = 0; i < maxRetries; i++)
@@ -30,6 +30,11 @@ namespace Rooster.Services
                     if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
                     {
                         RoosterPlugin.LogError($"Failed to fetch packages: {www.error}");
+                        if (i == maxRetries - 1)
+                        {
+                            onComplete?.Invoke(new List<ThunderstorePackage>(), $"Failed to fetch: {www.error}");
+                            yield break;
+                        }
                     }
                     else
                     {
@@ -38,12 +43,17 @@ namespace Rooster.Services
                             string json = www.downloadHandler.text;
                             var packages = ParsePackageList(json);
                             RoosterPlugin.LogInfo($"Fetched and parsed {packages.Count} packages.");
-                            onComplete?.Invoke(packages);
+                            onComplete?.Invoke(packages, null);
                             yield break;
                         }
                         catch (Exception ex)
                         {
                             RoosterPlugin.LogError($"Error parsing package list: {ex}");
+                            if (i == maxRetries - 1)
+                            {
+                                onComplete?.Invoke(new List<ThunderstorePackage>(), $"Parse Error: {ex.Message}");
+                                yield break;
+                            }
                         }
                     }
                 }
@@ -56,7 +66,8 @@ namespace Rooster.Services
             }
             
             RoosterPlugin.LogError($"Gave up after {maxRetries} attempts.");
-            onComplete?.Invoke(new List<ThunderstorePackage>());
+            // Should be handled in loop above, but fail-safe
+            onComplete?.Invoke(new List<ThunderstorePackage>(), "Max retries exceeded.");
         }
 
         /// <summary>Manually parses JSON to extract package data (avoids full deserialization overhead).</summary>

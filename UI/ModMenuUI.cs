@@ -121,34 +121,20 @@ namespace Rooster.UI
 
             textObj.SetActive(false);
 
-            var viewportObj = new GameObject("ModMenuViewport", typeof(RectTransform));
-            _viewportObj = viewportObj;
-            viewportObj.layer = container.gameObject.layer;
-            viewportObj.transform.SetParent(container, false);
-            var viewportRect = viewportObj.GetComponent<RectTransform>();
+            textObj.SetActive(false);
+
+            // Use unified ScrollLayout
+            // Top Margin: 80 (was -80 offsetMax)
+            // Bottom Margin: 100 (was 100 offsetMin)
+            // Side Margin: 0
+            // Scrollbar Width: 40
+            // Padding: 10
+            var scrollLayout = UIHelpers.CreateScrollLayout(container.gameObject, "ModMenu", 80, 100, 0, 40, 10);
             
-            viewportRect.anchorMin = Vector2.zero;
-            viewportRect.anchorMax = Vector2.one;
-            viewportRect.anchorMin = Vector2.zero;
-            viewportRect.anchorMax = Vector2.one;
-            viewportRect.offsetMin = new Vector2(0, 100); // Reserve bottom space (increased for larger button)
-            viewportRect.offsetMax = new Vector2(-50, -80);
-
-            var vpImg = viewportObj.AddComponent<Image>();
-            vpImg.sprite = UIHelpers.GetWhiteSprite();
-            vpImg.color = Color.white;
-            var mask = viewportObj.AddComponent<Mask>();
-            mask.showMaskGraphic = false;
-
-            var vpLayout = viewportObj.AddComponent<LayoutElement>();
-            vpLayout.preferredHeight = 800f;
-            vpLayout.flexibleHeight = 0f;
-            vpLayout.flexibleWidth = 1f;
-
-            var contentObj = new GameObject("ModListContent", typeof(RectTransform));
-            contentObj.layer = container.gameObject.layer;
-            contentObj.transform.SetParent(viewportRect, false);
-            var contentRect = contentObj.GetComponent<RectTransform>();
+            _viewportObj = scrollLayout.Viewport.gameObject;
+            _scrollbarObj = scrollLayout.ScrollbarObj;
+            var contentRect = scrollLayout.Content;
+            var contentObj = contentRect.gameObject;
 
             var layout = contentObj.AddComponent<VerticalLayoutGroup>();
             layout.childForceExpandWidth = true;
@@ -162,20 +148,6 @@ namespace Rooster.UI
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
 
-            contentRect.anchorMin = new Vector2(0, 1);
-            contentRect.anchorMax = new Vector2(1, 1);
-            contentRect.pivot = new Vector2(0.5f, 1);
-            contentRect.anchoredPosition = Vector2.zero;
-
-            var scrollRect = container.gameObject.GetComponent<ScrollRect>() ?? container.gameObject.AddComponent<ScrollRect>();
-            scrollRect.content = contentRect;
-            scrollRect.viewport = viewportRect;
-            scrollRect.horizontal = false;
-            scrollRect.vertical = true;
-            scrollRect.movementType = ScrollRect.MovementType.Clamped;
-            scrollRect.scrollSensitivity = 30f;
-            scrollRect.enabled = true;
-
             // Browse Button - Moved to bottom
             CreateBrowseButton(containerRect);
 
@@ -183,10 +155,6 @@ namespace Rooster.UI
             {
                 CreateModButton(contentRect, plugin);
             }
-
-            _scrollbarObj = UIHelpers.CreateScrollbar(container, scrollRect, "ModMenu");
-            var sbRect = _scrollbarObj.GetComponent<RectTransform>();
-            sbRect.offsetMin = new Vector2(sbRect.offsetMin.x, 100); // Lift bottom to not overlap button
 
             UnityEngine.Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);

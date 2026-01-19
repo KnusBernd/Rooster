@@ -85,50 +85,44 @@ namespace Rooster.UI
                 }
             }
 
-            var viewportObj = new GameObject("UpdateMenuViewport", typeof(RectTransform));
-            viewportObj.layer = container.gameObject.layer;
-            viewportObj.transform.SetParent(container, false);
-            var viewportRect = viewportObj.GetComponent<RectTransform>();
+            // Unified Scroll Layout
+            // Top: 10
+            // Bottom: 0
+            // Side: 0 -> Results in Right Margin 50 (40 scrollbar + 10 padding)
+            var layout = UIHelpers.CreateScrollLayout(container.gameObject, "UpdateMenu", 10, 0, 0, 40, 10);
             
-            viewportRect.anchorMin = Vector2.zero;
-            viewportRect.anchorMax = Vector2.one;
-            viewportRect.offsetMin = Vector2.zero; 
-            viewportRect.offsetMax = new Vector2(-50, -10);
-
-            var vpImg = viewportObj.AddComponent<Image>();
-            vpImg.color = Color.white; 
-            var mask = viewportObj.AddComponent<Mask>();
-            mask.showMaskGraphic = false;
-
-            var layoutElement = viewportObj.AddComponent<LayoutElement>();
-            layoutElement.preferredHeight = 600f;
-            layoutElement.flexibleHeight = 0f;
-            layoutElement.flexibleWidth = 1f;
-
-            textObj.transform.SetParent(viewportRect, false);
-            var fitter = textObj.GetComponent<ContentSizeFitter>() ?? textObj.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var contentObj = layout.Content.gameObject;
+            var vLayout = contentObj.AddComponent<VerticalLayoutGroup>();
+            vLayout.childControlWidth = true;
+            vLayout.childControlHeight = true;
+            vLayout.childForceExpandWidth = true;
+            vLayout.childForceExpandHeight = false;
             
+            var contentFitter = contentObj.AddComponent<ContentSizeFitter>();
+            contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            
+            textObj.transform.SetParent(layout.Content, false);
+            // Ensure textObj expands
+            var le = textObj.GetComponent<LayoutElement>() ?? textObj.AddComponent<LayoutElement>();
+            le.flexibleWidth = 1;
+            
+            // Text object itself might need Fitter removal if handled by Parent Layout?
+            // Original code added ContentSizeFitter to textObj.
+            // If Text is child of VerticalLayout with ControlHeight, we don't need Fitter on Text?
+            // Actually Text needs to report its preferred height. Text does that natively.
+            // But we might need ContentSizeFitter on Text if we want it to limit itself?
+            // VerticalLayoutGroup on Content with ChildControlHeight=true will force Text height.
+            // If Text has large content, it effectively asks for height.
+            // So we should strictly NOT have Fitter on textObj if VLG controls it, OR have it if VLG doesn't.
+            // Let's rely on VLG.
+            
+            var textFitter = textObj.GetComponent<ContentSizeFitter>();
+            if (textFitter != null) UnityEngine.Object.DestroyImmediate(textFitter);
+
             textRect.pivot = new Vector2(0f, 1f);
-            textRect.anchorMin = new Vector2(0f, 1f);
-            textRect.anchorMax = new Vector2(1f, 1f);
-            textRect.offsetMin = new Vector2(20, 0);
-            textRect.offsetMax = Vector2.zero;
-            textRect.anchoredPosition = Vector2.zero;
-
-            var scrollRect = container.gameObject.GetComponent<ScrollRect>() ?? container.gameObject.AddComponent<ScrollRect>();
-            scrollRect.content = textRect;
-            scrollRect.viewport = viewportRect;
-            scrollRect.horizontal = false;
-            scrollRect.vertical = true;
-            scrollRect.movementType = ScrollRect.MovementType.Clamped;
-            scrollRect.scrollSensitivity = 30f;
-            scrollRect.enabled = true;
-
-            UIHelpers.CreateScrollbar(container, scrollRect, "UpdateMenu");
-
+            
             UnityEngine.Canvas.ForceUpdateCanvases();
-            LayoutRebuilder.ForceRebuildLayoutImmediate(textRect);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(layout.Content);
         }
 
         public static void DestroyUI()
@@ -137,22 +131,31 @@ namespace Rooster.UI
             var container = Tablet.clickEventReceiver.modalOverlay.simpleMessageContainer;
             var modal = Tablet.clickEventReceiver.modalOverlay;
 
-            var vp = container.Find("UpdateMenuViewport");
-            if (vp != null)
-            {
-                if (modal.simpleMessageText != null && modal.simpleMessageText.transform.parent == vp)
-                {
-                    modal.simpleMessageText.transform.SetParent(container, false);
-                    
-                    var textRect = modal.simpleMessageText.GetComponent<RectTransform>();
-                    if (textRect != null)
-                    {
-                        var fitter = modal.simpleMessageText.GetComponent<ContentSizeFitter>();
-                        if (fitter != null) UnityEngine.Object.DestroyImmediate(fitter);
-                    }
-                }
-                UnityEngine.Object.DestroyImmediate(vp.gameObject);
-            }
+            // Find Content where we hid the text
+             var content = container.Find("UpdateMenuViewport/UpdateMenuContent");
+             // Fallback to Viewport if refactor fails or partial
+             if (content == null) content = container.Find("UpdateMenuViewport");
+             
+             if (content != null)
+             {
+                 if (modal.simpleMessageText != null && modal.simpleMessageText.transform.IsChildOf(content))
+                 {
+                     modal.simpleMessageText.transform.SetParent(container, false);
+                     
+                     var textRect = modal.simpleMessageText.GetComponent<RectTransform>();
+                     if (textRect != null)
+                     {
+                         var fitter = modal.simpleMessageText.GetComponent<ContentSizeFitter>();
+                         if (fitter != null) UnityEngine.Object.DestroyImmediate(fitter);
+                         
+                         var le = modal.simpleMessageText.GetComponent<LayoutElement>();
+                         if (le != null) UnityEngine.Object.DestroyImmediate(le);
+                     }
+                 }
+                 // Destroy Viewport (parent of content)
+                 var vp = container.Find("UpdateMenuViewport");
+                 if (vp != null) UnityEngine.Object.DestroyImmediate(vp.gameObject);
+             }
             
             var sb = container.Find("UpdateMenuScrollbar");
             if (sb != null) UnityEngine.Object.DestroyImmediate(sb.gameObject);

@@ -116,5 +116,100 @@ namespace Rooster.UI
             
             return newScheme;
         }
+        public class ScrollLayout
+        {
+            public ScrollRect ScrollRect;
+            public RectTransform Viewport;
+            public RectTransform Content;
+            public GameObject ScrollbarObj;
+        }
+
+        public static ScrollLayout CreateScrollLayout(GameObject parent, string namePrefix, float topMargin, float bottomMargin, float sideMargin = 0f, float scrollbarWidth = 40f, float scrollbarPadding = 10f)
+        {
+             // Container for Viewport + Scrollbar? Or just child of parent?
+             // Usually Parent is the main container.
+             // We assume Parent is a RectTransform.
+             
+             // 1. Viewport
+             var viewportObj = new GameObject($"{namePrefix}Viewport", typeof(RectTransform));
+             viewportObj.layer = parent.layer;
+             viewportObj.transform.SetParent(parent.transform, false);
+             var viewportRect = viewportObj.GetComponent<RectTransform>();
+             
+             // Anchors: Fill parent but respect margins
+             viewportRect.anchorMin = Vector2.zero;
+             viewportRect.anchorMax = Vector2.one;
+             viewportRect.pivot = new Vector2(0, 1);
+             
+             // Offsets: 
+             // MinX = sideMargin
+             // MinY = bottomMargin
+             // MaxX = -(sideMargin + scrollbarWidth + scrollbarPadding) // Make room for scrollbar on right
+             // MaxY = -topMargin
+             viewportRect.offsetMin = new Vector2(sideMargin, bottomMargin);
+             viewportRect.offsetMax = new Vector2(-(sideMargin + scrollbarWidth + scrollbarPadding), -topMargin);
+             
+             var vpImg = viewportObj.AddComponent<Image>();
+             vpImg.sprite = GetWhiteSprite();
+             vpImg.color = new Color(1, 1, 1, 0.05f); // Faint background for visibility debugging or style? usually clear or white
+             vpImg.color = Color.white;
+             
+             var mask = viewportObj.AddComponent<Mask>();
+             mask.showMaskGraphic = false;
+
+             // 2. Content
+             var contentObj = new GameObject($"{namePrefix}Content", typeof(RectTransform));
+             contentObj.layer = parent.layer;
+             contentObj.transform.SetParent(viewportRect, false);
+             var contentRect = contentObj.GetComponent<RectTransform>();
+             
+             contentRect.anchorMin = new Vector2(0, 1);
+             contentRect.anchorMax = new Vector2(1, 1); // Stretch width
+             contentRect.pivot = new Vector2(0.5f, 1);
+             contentRect.anchoredPosition = Vector2.zero;
+             contentRect.sizeDelta = Vector2.zero; // height controlled by fitter
+             
+             // 3. ScrollRect on Parent? Or on Viewport? 
+             // Usually ScrollRect is on the Parent provided, or we create a container.
+             // Existing code puts ScrollRect on the 'container' (parent).
+             
+             var scrollRect = parent.GetComponent<ScrollRect>() ?? parent.AddComponent<ScrollRect>();
+             scrollRect.content = contentRect;
+             scrollRect.viewport = viewportRect;
+             scrollRect.horizontal = false;
+             scrollRect.vertical = true;
+             scrollRect.movementType = ScrollRect.MovementType.Clamped;
+             scrollRect.scrollSensitivity = 30f;
+             
+             // 4. Scrollbar
+             // Position it to the right of the viewport
+             var scrollbarObj = CreateScrollbar(parent.GetComponent<RectTransform>(), scrollRect, namePrefix);
+             var sbRect = scrollbarObj.GetComponent<RectTransform>();
+             
+             // Adjust Scrollbar to match Viewport vertical span
+             // Anchor Min/Max Y should match Viewport logic implicitly if parent is same size, 
+             // but using offsets is safer if we want exact pixel match.
+             
+             sbRect.anchorMin = new Vector2(1, 0);
+             sbRect.anchorMax = new Vector2(1, 1);
+             sbRect.pivot = new Vector2(1, 1);
+             
+             // MinY = bottomMargin
+             // MaxY = -topMargin
+             // Width = scrollbarWidth
+             // X pos = -sideMargin
+             
+             sbRect.offsetMin = new Vector2(-scrollbarWidth - sideMargin, bottomMargin);
+             sbRect.offsetMax = new Vector2(-sideMargin, -topMargin);
+             sbRect.sizeDelta = new Vector2(scrollbarWidth, sbRect.sizeDelta.y); // y is ignored due to anchors but offsets define it
+             
+             return new ScrollLayout 
+             {
+                 ScrollRect = scrollRect,
+                 Viewport = viewportRect,
+                 Content = contentRect,
+                 ScrollbarObj = scrollbarObj
+             };
+        }
     }
 }
