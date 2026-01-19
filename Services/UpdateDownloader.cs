@@ -4,7 +4,7 @@ using System.IO;
 using UnityEngine;
 using UnityEngine.Networking;
 
-namespace Rooster
+namespace Rooster.Services
 {
     /// <summary>
     /// Handles downloading files from the internet with hash verification.

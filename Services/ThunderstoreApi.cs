@@ -8,8 +8,8 @@ using Rooster.Models;
 namespace Rooster.Services
 {
     /// <summary>
-    /// Handles communication with the Thunderstore API.
-    /// Fetches and parses the package list for Ultimate Chicken Horse.
+    /// Centralizes Thunderstore API communication.
+    /// Uses manual JSON parsing to minimize memory allocation during large package list processing.
     /// </summary>
     public static class ThunderstoreApi
     {
@@ -36,15 +36,6 @@ namespace Rooster.Services
                         try
                         {
                             string json = www.downloadHandler.text;
-                            
-                            // Debug: Write raw JSON to file to verify content (e.g. check for 'categories' or 'tags')
-                            try {
-                                System.IO.File.WriteAllText(System.IO.Path.Combine(Application.persistentDataPath, "Rooster_RawResponse.json"), json);
-                                RoosterPlugin.LogInfo($"Wrote raw API response to: {System.IO.Path.Combine(Application.persistentDataPath, "Rooster_RawResponse.json")}");
-                            } catch (Exception ex) {
-                                RoosterPlugin.LogError($"Failed to write raw response to file: {ex}");
-                            }
-
                             var packages = ParsePackageList(json);
                             RoosterPlugin.LogInfo($"Fetched and parsed {packages.Count} packages.");
                             onComplete?.Invoke(packages);

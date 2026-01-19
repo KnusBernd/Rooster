@@ -151,9 +151,6 @@ namespace Rooster.Services
                 {
                     string currentVer = match.Metadata.Version.ToString();
                     
-                    // Logic:
-                    // 1. Direct match with correct version = Fixed.
-                    // 2. Heuristic match with correct version = Fixed (likely a GUID change issue resolved).
                     if (currentVer == ignoredVer)
                     {
                         RoosterPlugin.LogInfo($"[UpdateLoopPreventer] Validating previously ignored update for {guid}. It is now installed.");

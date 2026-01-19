@@ -4,7 +4,7 @@ using System.IO.Compression;
 using System.Linq;
 using BepInEx;
 
-namespace Rooster
+namespace Rooster.Services
 {
     /// <summary>
     /// Handles the installation of downloaded mod updates.
@@ -47,18 +47,18 @@ namespace Rooster
             {
                 RoosterPlugin.LogInfo($"Installing {contextName} from {zipPath}...");
 
-                // 1. Extract and Find Root
+                // Extract and Find Root
                 string packageRoot = ExtractAndFindRoot(zipPath, tempExtractPath);
                 
-                // 2. Determine Target Directory
+                // Determine Target Directory
                 string targetDirectory = DetermineTargetDirectory(packageRoot, defaultTargetStrategy);
                 
                 RoosterPlugin.LogInfo($"Target Directory: {targetDirectory}");
 
-                // 3. Install Files
+                // Install Files
                 CopyDirectory(packageRoot, targetDirectory, true);
 
-                // 4. Clear Cache
+                // Clear Cache
                 ClearBepInExCache();
 
                 RoosterPlugin.LogInfo("Installation successful. Restart required.");
@@ -99,6 +99,7 @@ namespace Rooster
 
         private static string DetermineTargetDirectory(string packageRoot, Func<string, bool, string> defaultStrategy)
         {
+            // Detect standard BepInEx root structure (e.g. from BepInExPack) to ensure files land in valid game locations
             if (Directory.Exists(Path.Combine(packageRoot, "BepInEx"))) return Paths.GameRootPath;
             if (Directory.Exists(Path.Combine(packageRoot, "plugins")) || Directory.Exists(Path.Combine(packageRoot, "config"))) return Paths.BepInExRootPath;
 
@@ -119,6 +120,7 @@ namespace Rooster
             // Logic to unwrap single folders or flat installs
             if (rootDirs.Length == 0 && hasLooseFiles)
             {
+                // Flat packages (only loose files) must go directly to plugins root or they won't load
                 RoosterPlugin.LogInfo("Detected flat package (no subfolders). Installing to plugins root.");
                 return Paths.PluginPath;
             }
@@ -126,8 +128,7 @@ namespace Rooster
             if (rootDirs.Length == 1 && !hasLooseFiles)
             {
                 string subDirName = Path.GetFileName(rootDirs[0]);
-                // Simplified "Unwrap" Check:
-                // If single folder, install to plugins/ (letting the folder be the container)
+                // Single folder packages are unwrapped to avoid double-nesting (e.g. plugins/ModName/ModName/Mod.dll)
                 RoosterPlugin.LogInfo($"Detected single inner folder '{subDirName}'. Using it as container.");
                 return Path.Combine(Paths.PluginPath, subDirName);
             }

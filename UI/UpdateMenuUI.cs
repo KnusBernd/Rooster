@@ -6,7 +6,7 @@ using Rooster.Patches;
 using Rooster.Models;
 using Rooster.UI;
 
-namespace Rooster
+namespace Rooster.UI
 {
     /// <summary>
     /// Manages the UI for the Update Menu, which notifies users of available mod updates.

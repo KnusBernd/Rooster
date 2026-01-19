@@ -1,4 +1,5 @@
 using HarmonyLib;
+using Rooster.UI;
 using UnityEngine;
 
 namespace Rooster.Patches
@@ -18,7 +19,7 @@ namespace Rooster.Patches
 
             try
             {
-                GameObject optionsButton = FindFirstAvailableButton(new[] { "OPTIONS", "Options", "PLAY", "Play", "Play Local", "Play Online" });
+                GameObject optionsButton = FindFirstAvailableButton(new[] { "Options" });
                 if (optionsButton == null)
                 {
                     RoosterPlugin.LogError("Could not find a suitable button to clone for Mods");

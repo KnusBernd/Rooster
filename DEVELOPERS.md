@@ -4,7 +4,7 @@ This guide is for mod developers who want to ensure their mods are compatible wi
 
 ## How to Name Your Mod
 
-Rooster uses a point-based scoring system to link installed plugins to Thunderstore packages. A mod must accumulate **at least 60 points** to be successfully discovered.
+Rooster uses a point-based scoring system to link installed plugins to Thunderstore packages. Maybe a bit overkill but whatever. To be successfully discovered, a mod must accumulate **at least 60 points**.
 
 ### Scoring Rules
 
@@ -14,6 +14,13 @@ Rooster uses a point-based scoring system to link installed plugins to Thunderst
 -   **Exact GUID-to-Name Match**: `+80 points`
     -   *Criterion*: Your GUID (normalized) exactly matches the Thunderstore Package Name (normalized).
     -   *Example*: Package `SuperJump` vs GUID `com.whatever.SuperJump`.
+-   **URL Repo Name Match**: `+70 points`
+    -   *Criterion*: The repository name (last segment) in your Thunderstore Website URL matches your plugin name.
+    -   *Example*: URL `.../github.com/User/BestMod` matches Plugin Name `BestMod`.
+-   **Exact Name Match**: `+70 points`
+    -   *Criterion*: Your internal `BepInPlugin` Name exactly matches the normalized Thunderstore Package Name.
+-   **Fuzzy Prefix Match**: `+60 points`
+    -   *Criterion*: Your plugin name shares a significant prefix with the Thunderstore name (e.g. `LevelTools` vs `LevelToolsMod`).
 -   **Token Match**: `+65 points`
     -   *Criterion*: All "tokens" in the Thunderstore name (e.g., words in PascalCase) are present in your Plugin Name.
 -   **Partial GUID Match (Length Dependent)**:
@@ -21,6 +28,12 @@ Rooster uses a point-based scoring system to link installed plugins to Thunderst
     -   *Score*: `+65 points` if the name is 12+ characters, otherwise `+50 points`.
 -   **Plugin Name Match**: `+60 points`
     -   *Criterion*: Your internal `BepInPlugin` Name exactly matches the Thunderstore Package Name.
+
+### Versioning Mitigation
+Rooster understands that developers sometimes use different version formats (e.g., `v1.0.0` vs `1.0.0`). To ensure updates are detected correctly, it applies the following logic:
+-   **Strips Prefixes**: `v1.2` becomes `1.2`.
+-   **Ignores Metadata**: Anything after a hyphen is ignored (`1.0.0-beta` -> `1.0.0`).
+-   **Normalizes Padding**: `1.2` is treated as equal to `1.2.0`.
 
 ### Recommended: Strict Naming
 The most reliable way to ensure a match is to include both the **Author Name** and **Mod Name** in your GUID.
@@ -37,9 +50,25 @@ If your mod name is short and only appears partially in the GUID, it might fail 
 -   **Score**: 50 points (Ignored - Below 60 threshold)
 -   **Fix**: Ensure the `BepInPlugin` name is also `Utils` (+60) or use a more unique name (+65).
 
+## Developer Verification Tool (Built-in)
+Rooster includes a hidden developer tool to verify your mod's match score directly in-game.
+
+### Enabling the Tool
+1.  Open `BepInEx/config/de.knusbernd.rooster.cfg` (or use Configuration Manager).
+2.  Set `DeveloperMode = true`.
+3.  In-game, press **^ (Caret)** or **F3** to toggle the Developer UI.
+
+### Features
+-   **Live Inspector**: Click any running plugin to see a detailed **Match Report**, explaining exactly which rules triggered heavily.
+-   **Match Simulator**: 
+    -   Enter your **Local Mod Details** (GUID and Name).
+    -   Enter your target **Thunderstore Details** (Date Package Name and Repo URL).
+    -   **Click Simulate**: The tool will calculate the exact score your mod would get.
+    -   *Ghost Text*: Use the gray placeholder text as default values to quickly test the example logic.
+
 ## Why isn't my mod detected?
-If a mod shows up in the list but doesn't have a green `*` indicator, Rooster detected the file but couldn't verify which online package it belongs to.
-This usually happens because the mod's internal **Name** or **GUID** is too different from the **Thunderstore Name**.
+If the Mod does not show up in the Mod Menu it was not correctly loaded by BepInEx. If a mod shows up in the list but doesn't have a green `*` indicator, Rooster detected the file but couldn't verify which online package it belongs to.
+This usually happens because the mod's internal **Name** or **GUID** is too different from the **Thunderstore Name**, or may be intentionally because the mod is not available on Thunderstore.
 
 ## Mod Structure
  

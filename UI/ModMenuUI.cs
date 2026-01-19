@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Rooster.UI;
 
-namespace Rooster
+namespace Rooster.UI
 {
     /// <summary>
     /// Manages the UI for the Mod Menu, which lists all installed BepInEx plugins.

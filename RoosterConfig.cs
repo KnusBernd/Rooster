@@ -1,4 +1,5 @@
 using BepInEx.Configuration;
+using UnityEngine;
 using System.Collections.Generic;
 
 namespace Rooster
@@ -14,6 +15,8 @@ namespace Rooster
         private static ConfigFile _config;
 
         public static ConfigEntry<bool> ShowBetaWarning { get; private set; }
+        public static ConfigEntry<bool> DeveloperMode { get; private set; }
+        public static ConfigEntry<KeyCode> DeveloperKey { get; private set; }
 
         public static void Init(ConfigFile config)
         {
@@ -24,6 +27,20 @@ namespace Rooster
                 "ShowBetaWarning",
                 true,
                 "If true, a beta warning popup will be shown at the main menu."
+            );
+
+            DeveloperMode = config.Bind(
+                "General",
+                "DeveloperMode",
+                false,
+                "Enables the 'Rooster Developer Tools' window."
+            );
+
+            DeveloperKey = config.Bind(
+                "General",
+                "DeveloperKey",
+                KeyCode.F3,
+                "The key to toggle the Developer Tools window."
             );
         }
 

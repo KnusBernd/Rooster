@@ -3,7 +3,7 @@ using BepInEx;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Rooster
+namespace Rooster.UI
 {
     /// <summary>
     /// Manages the UI for individual Mod Settings.

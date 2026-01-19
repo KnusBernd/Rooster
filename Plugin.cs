@@ -2,6 +2,7 @@ using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 using Rooster.Patches;
+using Rooster.Services;
 using UnityEngine;
 
 namespace Rooster
@@ -30,17 +31,27 @@ namespace Rooster
         private void Start()
         {
             // Initialize loop preventer here ensuring all plugins are loaded
-            Rooster.Services.UpdateLoopPreventer.Init();
+            UpdateLoopPreventer.Init();
             StartCoroutine(UpdateChecker.CheckForUpdates());
+
+            if (RoosterConfig.DeveloperMode.Value)
+            {
+                gameObject.AddComponent<Rooster.UI.DeveloperUI>();
+                LogInfo($"Developer Tools Enabled. Press '{RoosterConfig.DeveloperKey.Value}' to toggle.");
+            }
         }
 
+        /// <summary>
+        /// Removes temporary backup files (.old) created during hot-swapping updates.
+        /// Failing to clean these up doesn't break anything, so errors are swallowed to prevent startup noise.
+        /// </summary>
         private void CleanupOldFiles()
         {
+            string pluginsPath = Paths.PluginPath;
+            if (!System.IO.Directory.Exists(pluginsPath)) return;
+
             try 
             {
-                string pluginsPath = Paths.PluginPath;
-                if (!System.IO.Directory.Exists(pluginsPath)) return;
-
                 var oldFiles = System.IO.Directory.GetFiles(pluginsPath, "*.old*", System.IO.SearchOption.AllDirectories);
                 foreach (var f in oldFiles)
                 {

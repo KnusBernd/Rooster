@@ -78,17 +78,20 @@
     <Reference Include="UnityEngine.TextRenderingModule">
       <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Plugin.cs" />
 
     <Compile Include="RoosterConfig.cs" />
     <Compile Include="UpdateChecker.cs" />
-    <Compile Include="UpdateDownloader.cs" />
-    <Compile Include="UpdateInstaller.cs" />
-    <Compile Include="ModMenuUI.cs" />
-    <Compile Include="ModSettingsUI.cs" />
-    <Compile Include="UpdateMenuUI.cs" />
+    <Compile Include="Services\UpdateDownloader.cs" />
+    <Compile Include="Services\UpdateInstaller.cs" />
+    <Compile Include="UI\ModMenuUI.cs" />
+    <Compile Include="UI\ModSettingsUI.cs" />
+    <Compile Include="UI\UpdateMenuUI.cs" />
     <Compile Include="Patches\MainMenuPopupPatch.cs" />
     <Compile Include="Patches\MainMenuButtonPatch.cs" />
     <Compile Include="Patches\PickCursorScrollPatch.cs" />
@@ -100,7 +103,9 @@
     <Compile Include="Services\VersionComparer.cs" />
     <Compile Include="Services\UpdateLoopPreventer.cs" />
     <Compile Include="UI\UIHelpers.cs" />
+    <Compile Include="UI\DeveloperUI.cs" />
     <Compile Include="UI\PopupController.cs" />
+    <Compile Include="Models\MatchReport.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   

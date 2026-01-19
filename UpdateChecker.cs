@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using BepInEx;
 using BepInEx.Bootstrap;
 using UnityEngine;
@@ -152,15 +153,11 @@ namespace Rooster
             {
                 // Pulse the notification every second to keep it alive
                 // We use reflection/TryCatch just in case UserMessageManager isn't ready
-                try
+                if (UserMessageManager.Instance != null && UserMessageManager.Instance.MessageHolderPrefab != null)
                 {
-                    if (UserMessageManager.Instance != null && UserMessageManager.Instance.MessageHolderPrefab != null)
-                    {
-                         // Use a short duration (2s) and refresh it every 1s
-                        UserMessageManager.Instance.UserMessage("Checking for Mod Updates...", 2.0f, UserMessageManager.UserMsgPriority.lo, false);
-                    }
+                     // Use a short duration (2s) and refresh it every 1s
+                    UserMessageManager.Instance.UserMessage("Checking for Mod Updates...", 2.0f, UserMessageManager.UserMsgPriority.lo, false);
                 }
-                catch { }
 
                 yield return new WaitForSecondsRealtime(1.0f);
             }

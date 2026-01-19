@@ -26,10 +26,10 @@ namespace Rooster.Services
 
             foreach (var pkg in packages)
             {
-                int score = ScoreMatch(pkg, guid, modName);
-                if (score > bestScore)
+                MatchReport report = ScoreMatch(pkg, guid, modName);
+                if (report.TotalScore > bestScore)
                 {
-                    bestScore = score;
+                    bestScore = report.TotalScore;
                     bestMatch = pkg;
                 }
             }
@@ -44,9 +44,9 @@ namespace Rooster.Services
         }
 
         /// <summary>Calculates a similarity score based on GUID, name tokens, and namespace.</summary>
-        public static int ScoreMatch(ThunderstorePackage pkg, string localGuid, string localName)
+        public static MatchReport ScoreMatch(ThunderstorePackage pkg, string localGuid, string localName)
         {
-            int score = 0;
+            MatchReport report = new MatchReport();
             
             string tsFullName = pkg.full_name ?? "";
             string[] parts = tsFullName.Split('-');
@@ -59,33 +59,47 @@ namespace Rooster.Services
             string nTsNamespace = NormalizeName(tsNamespace);
 
             // Exact name match
-            if (nLocalName == nTsName) score += 70; // Increased base score for exact match
+            if (nLocalName == nTsName) 
+            {
+                report.AddScore("Exact Plugin Name Match", 70);
+            }
             else if (nLocalName.Length > 5 && nTsName.Length > 5)
             {
                  // Fuzzy Prefix Match (e.g. "LevelLoadingOptimizer" vs "LevelLoadingOptimization")
                  int commonPrefix = GetCommonPrefixLength(nLocalName, nTsName);
                  float ratio = (float)commonPrefix / Math.Max(nLocalName.Length, nTsName.Length);
                  
-                 if (ratio >= 0.75f) score += 60; // Strong similarity
+                 if (ratio >= 0.75f) 
+                 {
+                    report.AddScore($"Fuzzy Match (Prefix Ratio {ratio:F2})", 60);
+                 }
                  
                  // Name containment (e.g. "CustomBlocks" in "SuperCustomBlocks")
                  else if (nTsName.Contains(nLocalName) || nLocalName.Contains(nTsName))
                  {
-                     score += 50;
+                     report.AddScore("Name Containment", 50);
                  }
             }
             
             // GUID matches package name
-            if (nLocalGuid == nTsName) score += 80;
+            if (nLocalGuid == nTsName) 
+            {
+                report.AddScore("GUID matches Package Name", 80);
+            }
             
             // GUID contains namespace and name
-            if (nLocalGuid.Contains(nTsNamespace) && nLocalGuid.Contains(nTsName)) score += 100;
+            if (nLocalGuid.Contains(nTsNamespace) && nLocalGuid.Contains(nTsName)) 
+            {
+                report.AddScore("GUID contains Author + ModName", 100);
+            }
             else if (nLocalGuid.Contains(nTsName)) 
             {
                 // Partial containment
                 // Longer names provide more confidence
-                if (nTsName.Length >= 12) score += 65; 
-                else score += 50; 
+                if (nTsName.Length >= 12) 
+                    report.AddScore("GUID contains Long Package Name", 65);
+                else 
+                    report.AddScore("GUID contains Short Package Name", 50); 
             }
 
             // Token-based matching for formatting variations
@@ -105,7 +119,10 @@ namespace Rooster.Services
                     }
                 }
                 
-                if (allRemoteInLocal) score += 65;
+                if (allRemoteInLocal) 
+                {
+                    report.AddScore("All Thunderstore tokens found in Plugin Name", 65);
+                }
             }
 
             // Website/Repo Name Match (e.g. "CustomBlocks" vs "https://github.com/Woedroe/UCH-CustomBlocks")
@@ -118,25 +135,35 @@ namespace Rooster.Services
                     string repoName = url.Substring(lastSlash + 1);
                     string nRepoName = NormalizeName(repoName);
                     
-                    if (nRepoName == nLocalName) score += 70;
+                     if (nRepoName == nLocalName) 
+                    {
+                        report.AddScore("URL Repo Name matches Plugin Name", 70);
+                    }
                     else if (nRepoName.Contains(nLocalName) || nLocalName.Contains(nRepoName))
                     {
                          // Require sufficient length to avoid false positives with short names
                          if (nLocalName.Length > 4) 
                          {
-                             // High confidence if the overlap is substantial
-                             score += 70; 
+                             report.AddScore("URL Repo Name overlaps Plugin Name", 70);
                          }
+                         else
+                         {
+                             report.AddScore("URL Repo Name overlap ignored (Short Name)", 0);
+                         }
+                    }
+                    else
+                    {
+                         report.AddScore($"URL Repo Name mismatch ('{repoName}' vs Local)", 0);
                     }
                 }
             }
 
-            if (score > 40 && score < MIN_MATCH_SCORE)
+            if (report.TotalScore > 40 && report.TotalScore < MIN_MATCH_SCORE)
             {
-                RoosterPlugin.LogInfo($"Close Heuristic Miss: {localName} vs {pkg.full_name} -> Score: {score} (Repo: {pkg.website_url})");
+                RoosterPlugin.LogInfo($"Close Heuristic Miss: {localName} vs {pkg.full_name} -> Score: {report.TotalScore}");
             }
 
-            return score;
+            return report;
         }
 
         /// <summary>Removes non-alphanumeric chars and lowercases.</summary>
