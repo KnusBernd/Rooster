@@ -403,6 +403,7 @@ namespace Rooster.UI
                         spinRect.anchorMax = new Vector2(0.5f, 0.5f);
                         spinRect.pivot = new Vector2(0.5f, 0.5f);
                         spinRect.anchoredPosition = Vector2.zero;
+                        _loadingSpinner.transform.localScale = new Vector3(0.375f, 0.375f, 1f);
                     }
                 }
             }
