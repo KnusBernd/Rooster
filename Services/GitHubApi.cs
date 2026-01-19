@@ -171,6 +171,8 @@ namespace Rooster.Services
                  }
                  else
                  {
+                     // Sort alphabetically by name to ensure deterministic UI order
+                     allPackages.Sort((a, b) => string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase));
                      onComplete?.Invoke(allPackages, null);
                  }
              }
