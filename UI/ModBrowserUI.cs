@@ -176,6 +176,10 @@ namespace Rooster.UI
                         ShowErrorModal($"GitHub Error:\n{ghError}");
                     }
                 }
+
+            // Normalize order (Alphabetical)
+            _thunderstoreMods.Sort((a, b) => string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase));
+            _curatedMods.Sort((a, b) => string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase));
             
             try 
             {
@@ -291,10 +295,11 @@ namespace Rooster.UI
 
         private static void CreateTabs(Transform parent)
         {
-            // Evenly Spaced Buttons: -300, 0, 300
+            // Evenly Spaced Buttons: -320, 20, 300
             // Widths: 300, 300, 200
+            // Gap between tabs: 40px
             
-            CreateTabButton(parent, "Thunderstore", -310, () => {
+            CreateTabButton(parent, "Thunderstore", -320, () => {
                 if (!_isThunderstoreTab) {
                     _isThunderstoreTab = true;
                     RefreshList();
@@ -303,7 +308,7 @@ namespace Rooster.UI
                 }
             }, _isThunderstoreTab);
 
-            CreateTabButton(parent, "GitHub", 10, () => {
+            CreateTabButton(parent, "GitHub", 20, () => {
                 if (_isThunderstoreTab) {
                     _isThunderstoreTab = false;
                     RefreshList();
