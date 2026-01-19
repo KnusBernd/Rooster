@@ -42,9 +42,18 @@ namespace Rooster
                 CachedPackages = packages;
             });
 
+            // Auto-discover GitHub projects
+            yield return GitHubApi.BuildCache();
+            if (GitHubApi.CachedPackages != null && GitHubApi.CachedPackages.Count > 0)
+            {
+                RoosterPlugin.LogInfo($"UpdateChecker: Merging {GitHubApi.CachedPackages.Count} GitHub packages.");
+                // Avoid duplicates if possible, or just append (Thunderstore checked first effectively)
+                CachedPackages.AddRange(GitHubApi.CachedPackages);
+            }
+
             if (CachedPackages.Count == 0)
             {
-                RoosterPlugin.LogError("Failed to fetch packages from Thunderstore. Aborting check.");
+                RoosterPlugin.LogError("Failed to fetch packages from Thunderstore or GitHub. Aborting check.");
                 CheckComplete = true;
                 if (notificationRoutine != null) RoosterPlugin.Instance.StopCoroutine(notificationRoutine);
                 yield break;
@@ -66,11 +75,9 @@ namespace Rooster
 
                 RoosterConfig.RegisterMod(guid, modName);
 
-                // Prioritize Thunderstore matching
+                // Prioritize Thunderstore matching (list contains both TS and GH)
                 ThunderstorePackage matchedPkg = ModMatcher.FindPackage(plugin, CachedPackages);
                 
-                // Fallback to GitHub matching would go here in the future
-
                 if (matchedPkg == null && plugin.Metadata.Name.IndexOf("RemovePlayerPlacements", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     RoosterPlugin.LogWarning($"[DEBUG] Failed to find match for 'RemovePlayerPlacements' (GUID: {guid}). Cached Packages: {CachedPackages?.Count}");
@@ -86,6 +93,12 @@ namespace Rooster
 
                     MatchedPackages[guid] = matchedPkg;
                     InstalledPackageIds.Add(matchedPkg.full_name);
+
+                    // Skip fresh fetch for GitHub packages (they are already fresh)
+                    if (matchedPkg.categories != null && matchedPkg.categories.Contains("GitHub"))
+                    {
+                        continue;
+                    }
 
                     // Fetch fresh version from API (bypasses CDN cache) in PARALLEL
                     string[] parts = matchedPkg.full_name.Split('-');
