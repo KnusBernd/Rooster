@@ -230,6 +230,17 @@ namespace Rooster.Services
             return null;
         }
 
+        public static bool ExtractJsonBool(string source, string key)
+        {
+            string pattern = $"\"{key}\"\\s*:\\s*(true|false)";
+            var match = System.Text.RegularExpressions.Regex.Match(source, pattern);
+            if (match.Success)
+            {
+                return match.Groups[1].Value == "true";
+            }
+            return false;
+        }
+
         public static List<string> ExtractJsonStringArray(string source, string key)
         {
             var list = new List<string>();

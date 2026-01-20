@@ -258,7 +258,8 @@ namespace Rooster
                 catch { /* Ignore callback errors */ }
 
                 string cacheDir = Path.Combine(Paths.BepInExRootPath, "cache");
-                string zipPath = Path.Combine(cacheDir, $"{update.ModName}_{update.Version}.zip");
+                string ext = update.DownloadUrl.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? ".dll" : ".zip";
+                string zipPath = Path.Combine(cacheDir, $"{update.ModName}_{update.Version}{ext}");
 
                 // Yield cannot be in try-catch
                 yield return UpdateDownloader.DownloadFile(update.DownloadUrl, zipPath, (success, error) => 

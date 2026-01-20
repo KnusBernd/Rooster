@@ -352,15 +352,40 @@ namespace Rooster.Services
             int arrayStart = json.IndexOf('[');
             if (arrayStart < 0) return packages; 
             
-            int objStart = json.IndexOf('{', arrayStart);
-            if (objStart < 0) return packages;
+            int arrayEnd = FindMatchingClosingChar(json, arrayStart, '[', ']');
+            if (arrayEnd < 0) return packages;
             
-            int objEnd = FindMatchingClosingChar(json, objStart, '{', '}');
-            if (objEnd < 0) return packages;
+            string arrayContent = json.Substring(arrayStart, arrayEnd - arrayStart + 1);
+            int walker = 0;
             
-            string latestReleaseJson = json.Substring(objStart, objEnd - objStart + 1);
-            
-            return ParseSingleReleaseJson(latestReleaseJson, repoInfo);
+            while (walker < arrayContent.Length)
+            {
+                 int objStart = arrayContent.IndexOf('{', walker);
+                 if (objStart < 0) break;
+                 
+                 int objEnd = FindMatchingClosingChar(arrayContent, objStart, '{', '}');
+                 if (objEnd < 0) break;
+                 
+                 string releaseJson = arrayContent.Substring(objStart, objEnd - objStart + 1);
+                 
+                 bool isDraft = ThunderstoreApi.ExtractJsonBool(releaseJson, "draft");
+                 string tagName = ThunderstoreApi.ExtractJsonValue(releaseJson, "tag_name");
+
+                 // Skip drafts and untagged releases
+                 // Note: GitHub API authenticated requests return drafts. We only want public releases.
+                 if (!isDraft && !string.IsNullOrEmpty(tagName) && !tagName.StartsWith("untagged", StringComparison.OrdinalIgnoreCase))
+                 {
+                     var result = ParseSingleReleaseJson(releaseJson, repoInfo);
+                     if (result.Count > 0) 
+                     {
+                         return result;
+                     }
+                 }
+                 
+                 walker = objEnd + 1;
+            }
+
+            return packages;
         }
 
         private static List<ThunderstorePackage> ParseSingleReleaseJson(string json, CuratedRepo repoInfo)

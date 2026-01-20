@@ -178,6 +178,11 @@ namespace Rooster.Services
             {
                 if (IsAcronymMatch(shortGuid, plugin.Metadata.Name)) return plugin;
                 
+                // Fuzzy fallback: contains (e.g. BuildUnlimiterMod vs BuildUnlimiter)
+                string nShort = ModMatcher.NormalizeName(shortGuid);
+                string nName = ModMatcher.NormalizeName(plugin.Metadata.Name);
+                if (nShort.Contains(nName) || nName.Contains(nShort)) return plugin;
+
                 string simpleGuid = plugin.Metadata.GUID;
                 int dotIndex = simpleGuid.LastIndexOf('.');
                 if (dotIndex >= 0 && dotIndex < simpleGuid.Length - 1)
