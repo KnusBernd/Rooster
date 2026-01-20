@@ -31,7 +31,7 @@ namespace Rooster
         {
             foreach (var pair in MatchedPackages)
             {
-                if (pair.Value.full_name == fullName && PendingUninstalls.Contains(pair.Key))
+                if (pair.Value.FullName == fullName && PendingUninstalls.Contains(pair.Key))
                     return true;
             }
             return false;
@@ -43,23 +43,23 @@ namespace Rooster
             yield return new WaitForSecondsRealtime(2.0f);
 
             CheckComplete = false;
-            
-            // Start notification loop
+
+
+
             Coroutine notificationRoutine = RoosterPlugin.Instance.StartCoroutine(KeepAliveNotification());
 
-            yield return ThunderstoreApi.FetchAllPackages((packages, error) => {
+            yield return ThunderstoreApi.FetchAllPackages((packages, error) =>
+            {
                 if (error != null) RoosterPlugin.LogError($"Thunderstore Fetch Error: {error}");
                 CachedPackages = packages;
             });
 
-            // Auto-discover GitHub projects
             yield return GitHubApi.BuildCache();
             yield return new WaitUntil(() => !GitHubApi.IsCaching);
 
             if (GitHubApi.CachedPackages != null && GitHubApi.CachedPackages.Count > 0)
             {
                 RoosterPlugin.LogInfo($"UpdateChecker: Merging {GitHubApi.CachedPackages.Count} GitHub packages.");
-                // Avoid duplicates if possible, or just append (Thunderstore checked first effectively)
                 CachedPackages.AddRange(GitHubApi.CachedPackages);
             }
 
@@ -87,44 +87,36 @@ namespace Rooster
 
                 RoosterConfig.RegisterMod(guid, modName);
 
-                // Prioritize Thunderstore matching (list contains both TS and GH)
                 ThunderstorePackage matchedPkg = ModMatcher.FindPackage(plugin, CachedPackages);
-                
+
                 if (matchedPkg == null && plugin.Metadata.Name.IndexOf("RemovePlayerPlacements", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    RoosterPlugin.LogWarning($"[DEBUG] Failed to find match for 'RemovePlayerPlacements' (GUID: {guid}). Cached Packages: {CachedPackages?.Count}");
                 }
 
                 if (matchedPkg != null)
                 {
-                    // Debug log for RemovePlayerPlacements to trace the issue
-                    if (plugin.Metadata.Name.IndexOf("RemovePlayerPlacements", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        RoosterPlugin.LogInfo($"[DEBUG] Matched 'RemovePlayerPlacements' to '{matchedPkg.full_name}'. Latest: {matchedPkg.latest?.version_number}");
-                    }
 
                     MatchedPackages[guid] = matchedPkg;
-                    InstalledPackageIds.Add(matchedPkg.full_name);
+                    InstalledPackageIds.Add(matchedPkg.FullName);
 
-                    // Skip fresh fetch for GitHub packages (they are already fresh)
-                    if (matchedPkg.categories != null && matchedPkg.categories.Contains("GitHub"))
+                    if (matchedPkg.Categories != null && matchedPkg.Categories.Contains("GitHub"))
                     {
                         continue;
                     }
 
-                    // Fetch fresh version from API (bypasses CDN cache) in PARALLEL
-                    string[] parts = matchedPkg.full_name.Split('-');
+                    string[] parts = matchedPkg.FullName.Split('-');
                     if (parts.Length >= 2)
                     {
                         string owner = parts[0];
                         string pkgName = parts[1];
-                        
+
                         pendingRequests++;
-                        RoosterPlugin.Instance.StartCoroutine(ThunderstoreApi.FetchFreshVersion(owner, pkgName, (ver, url) => {
+                        RoosterPlugin.Instance.StartCoroutine(ThunderstoreApi.FetchFreshVersion(owner, pkgName, (ver, url) =>
+                        {
                             if (!string.IsNullOrEmpty(ver))
                             {
-                                matchedPkg.latest.version_number = ver;
-                                if (!string.IsNullOrEmpty(url)) matchedPkg.latest.download_url = url;
+                                matchedPkg.Latest.VersionNumber = ver;
+                                if (!string.IsNullOrEmpty(url)) matchedPkg.Latest.DownloadUrl = url;
                             }
                             pendingRequests--;
                         }));
@@ -132,13 +124,11 @@ namespace Rooster
                 }
             }
 
-            // Wait for all parallel requests to complete
             while (pendingRequests > 0)
             {
                 yield return null;
             }
 
-            // Process versions AFTER all fresh data is fetched
             foreach (var plugin in Chainloader.PluginInfos.Values)
             {
                 string guid = plugin.Metadata.GUID;
@@ -146,23 +136,13 @@ namespace Rooster
                 string modName = plugin.Metadata.Name;
 
                 var updateInfo = VersionComparer.CheckForUpdate(plugin, matchedPkg);
-                
-                if (plugin.Metadata.Name.IndexOf("RemovePlayerPlacements", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                     RoosterPlugin.LogInfo($"[DEBUG] Version Check for {plugin.Metadata.Name}: Local={plugin.Metadata.Version}, Remote={matchedPkg.latest.version_number}, HasUpdate={updateInfo != null}");
-                }
 
                 if (updateInfo != null)
                 {
-                    // Populate metadata
-                    updateInfo.FullName = matchedPkg.full_name;
-                    updateInfo.Description = matchedPkg.description;
-                    updateInfo.WebsiteUrl = matchedPkg.website_url;
+                    updateInfo.WebsiteUrl = matchedPkg.WebsiteUrl;
 
-                    if (RoosterConfig.IsModIgnored(guid) || UpdateLoopPreventer.IsVersionIgnored(guid, matchedPkg.latest.version_number))
+                    if (RoosterConfig.IsModIgnored(guid) || UpdateLoopPreventer.IsVersionIgnored(guid, matchedPkg.Latest.VersionNumber))
                     {
-                        // Update ignored code path
-                        RoosterPlugin.LogWarning($"[DEBUG] Update ignored for {modName} ({guid}). ConfigIgnored: {RoosterConfig.IsModIgnored(guid)}, LoopIgnored: {UpdateLoopPreventer.IsVersionIgnored(guid, matchedPkg.latest.version_number)}");
                     }
                     else if (RoosterConfig.IsModAutoUpdate(guid))
                     {
@@ -175,13 +155,53 @@ namespace Rooster
                     }
                 }
             }
-            
 
-            
+            try
+            {
+                var bepPkg = CachedPackages.FirstOrDefault(p => p.FullName == "BepInEx-BepInExPack");
+                string bepVersion = typeof(Chainloader).Assembly.GetName().Version.ToString();
+
+                if (bepPkg != null)
+                {
+                    MatchedPackages["bepinex"] = bepPkg;
+                    InstalledPackageIds.Add(bepPkg.FullName);
+
+                    string searchVersion = bepVersion;
+                    var vParts = bepVersion.Split('.');
+                    if (vParts.Length == 4 && int.TryParse(vParts[3], out int build))
+                    {
+                        searchVersion = $"{vParts[0]}.{vParts[1]}.{vParts[2]}{build:D2}";
+                    }
+
+                    var bepUpdate = VersionComparer.CheckForUpdate("BepInEx", searchVersion, bepPkg);
+                    if (bepUpdate != null)
+                    {
+                        bepUpdate.FullName = bepPkg.FullName;
+                        bepUpdate.Description = bepPkg.Description;
+                        bepUpdate.WebsiteUrl = bepPkg.WebsiteUrl;
+
+                        if (!RoosterConfig.IsModIgnored("bepinex"))
+                        {
+                            manualUpdates.Add(bepUpdate);
+                            RoosterPlugin.LogInfo("BepInEx update available!");
+                        }
+                    }
+
+                    RoosterConfig.RegisterMod("bepinex", "BepInEx");
+                }
+            }
+            catch (Exception ex)
+            {
+                RoosterPlugin.LogError($"Failed to process BepInEx pseudo-plugin: {ex.Message}");
+            }
+
+
+
             if (autoUpdates.Count > 0)
             {
                 PendingUpdates.AddRange(autoUpdates);
-                RoosterPlugin.Instance.StartCoroutine(UpdateAllCoroutine(autoUpdates, (info, status) => {}, () => {
+                RoosterPlugin.Instance.StartCoroutine(UpdateAllCoroutine(autoUpdates, (info, status) => { }, () =>
+                {
                     RestartRequired = true;
                     Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
                 }));
@@ -190,25 +210,33 @@ namespace Rooster
             PendingUpdates = manualUpdates;
             CheckComplete = true;
             RoosterPlugin.LogInfo($"Update Check Complete. Found {manualUpdates.Count} manual updates and {autoUpdates.Count} auto updates.");
-            
+
             if (notificationRoutine != null) RoosterPlugin.Instance.StopCoroutine(notificationRoutine);
-            
+
             if (manualUpdates.Count > 0)
             {
-                try {
-                try {
-                     // Notification removed as per user request
-                } catch {}
-                } catch {}
+                try
+                {
+                    try
+                    {
+                        // Notification removed as per user request
+                    }
+                    catch { }
+                }
+                catch { }
                 Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
             }
             else
             {
-                try {
-                try {
-                     // Notification removed as per user request
-                } catch {}
-                } catch {}
+                try
+                {
+                    try
+                    {
+                        // Notification removed as per user request
+                    }
+                    catch { }
+                }
+                catch { }
             }
         }
 
@@ -220,14 +248,11 @@ namespace Rooster
             {
                 if (UserMessageManager.Instance != null && UserMessageManager.Instance.MessageHolderPrefab != null)
                 {
-                    // Notification removed as per user request
                 }
                 yield return new WaitForSecondsRealtime(1.0f);
             }
         }
 
-        /// <summary>Initiates mass update for all pending updates.</summary>
-        /// <summary>Initiates mass update for all pending updates.</summary>
         public static void UpdateAll(Action<ModUpdateInfo, string> onStatusUpdate, Action onComplete)
         {
             RoosterPlugin.Instance.StartCoroutine(UpdateAllCoroutine(PendingUpdates, onStatusUpdate, onComplete));
@@ -235,7 +260,6 @@ namespace Rooster
 
         private static IEnumerator UpdateAllCoroutine(List<ModUpdateInfo> upgradesRaw, Action<ModUpdateInfo, string> onStatusUpdate, Action onComplete)
         {
-            // Defensive Copy
             var updates = new List<ModUpdateInfo>(upgradesRaw);
             RoosterPlugin.LogInfo($"Starting Mass Update for {updates.Count} mods.");
 
@@ -251,7 +275,7 @@ namespace Rooster
 
                 bool downloadSuccess = false;
 
-                try 
+                try
                 {
                     onStatusUpdate?.Invoke(update, "Downloading...");
                 }
@@ -261,34 +285,33 @@ namespace Rooster
                 string ext = update.DownloadUrl.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? ".dll" : ".zip";
                 string zipPath = Path.Combine(cacheDir, $"{update.ModName}_{update.Version}{ext}");
 
-                // Yield cannot be in try-catch
-                yield return UpdateDownloader.DownloadFile(update.DownloadUrl, zipPath, (success, error) => 
+                yield return UpdateDownloader.DownloadFile(update.DownloadUrl, zipPath, (success, error) =>
                 {
                     downloadSuccess = success;
-                    if (!success) 
+                    if (!success)
                     {
-                        try { onStatusUpdate?.Invoke(update, "Download Failed"); } catch {}
+                        try { onStatusUpdate?.Invoke(update, "Download Failed"); } catch { }
                     }
                 });
 
                 if (downloadSuccess)
                 {
                     bool installSuccess = false;
-                    try { onStatusUpdate?.Invoke(update, "Installing..."); } catch {}
+                    try { onStatusUpdate?.Invoke(update, "Installing..."); } catch { }
 
-                    UpdateInstaller.InstallMod(zipPath, update.PluginInfo, new ThunderstorePackage 
+                    UpdateInstaller.InstallMod(zipPath, update.PluginInfo, new ThunderstorePackage
                     {
-                        name = update.ModName,
-                        full_name = update.FullName,
-                        description = update.Description,
-                        website_url = update.WebsiteUrl,
-                        latest = new ThunderstoreVersion { version_number = update.Version }
+                        Name = update.ModName,
+                        FullName = update.FullName,
+                        Description = update.Description,
+                        WebsiteUrl = update.WebsiteUrl,
+                        Latest = new ThunderstoreVersion { VersionNumber = update.Version }
                     }, (success, error) =>
                     {
-                        try 
+                        try
                         {
                             if (success) UpdateLoopPreventer.RegisterPendingInstall(update.PluginInfo.Metadata.GUID, update.Version);
-                            
+
                             installSuccess = success;
                             if (!success) onStatusUpdate?.Invoke(update, "Install Failed");
                         }
@@ -298,14 +321,14 @@ namespace Rooster
                         }
                     });
 
-                    if (installSuccess) 
+                    if (installSuccess)
                     {
-                        try { onStatusUpdate?.Invoke(update, "Ready"); } catch {}
+                        try { onStatusUpdate?.Invoke(update, "Ready"); } catch { }
                     }
                 }
             }
 
-            try 
+            try
             {
                 onStatusUpdate?.Invoke(null, "All updates processed. Restart required.");
                 RestartRequired = true;
@@ -316,12 +339,16 @@ namespace Rooster
                 RoosterPlugin.LogError($"Finalizing Update Error: {ex}");
             }
 
-            // ALWAYS fire completion
-            try {
+
+
+            try
+            {
                 RoosterPlugin.LogInfo("UpdateAllCoroutine: Invoking onComplete callback.");
                 onComplete?.Invoke();
-            } catch (Exception ex2) {
-                 RoosterPlugin.LogError($"onComplete callback failed: {ex2}");
+            }
+            catch (Exception ex2)
+            {
+                RoosterPlugin.LogError($"onComplete callback failed: {ex2}");
             }
         }
     }

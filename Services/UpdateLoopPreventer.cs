@@ -4,7 +4,7 @@ using System.IO;
 using BepInEx;
 using Rooster.Models;
 using UnityEngine;
-using Rooster.Services; 
+using Rooster.Services;
 
 namespace Rooster.Services
 {
@@ -16,7 +16,7 @@ namespace Rooster.Services
     {
         private static string StoragePath => Path.Combine(Paths.ConfigPath, "Rooster_UpdateLoopData.json");
 
-        [Serializable]
+
         private class LoopData
         {
             public List<string> PendingInstalls = new List<string>();
@@ -40,7 +40,16 @@ namespace Rooster.Services
             {
                 if (File.Exists(StoragePath))
                 {
-                    _data = JsonUtility.FromJson<LoopData>(File.ReadAllText(StoragePath));
+                    var root = JSON.Parse(File.ReadAllText(StoragePath));
+                    if (root != null)
+                    {
+                        _data = new LoopData();
+                        var pending = root["PendingInstalls"].AsArray;
+                        if (pending != null) foreach (var p in pending) _data.PendingInstalls.Add(p.Value);
+
+                        var ignored = root["IgnoredVersions"].AsArray;
+                        if (ignored != null) foreach (var i in ignored) _data.IgnoredVersions.Add(i.Value);
+                    }
                 }
             }
             catch (Exception ex)
@@ -55,7 +64,17 @@ namespace Rooster.Services
         {
             try
             {
-                File.WriteAllText(StoragePath, JsonUtility.ToJson(_data, true));
+                var root = new JSONObject();
+
+                var pending = new JSONArray();
+                foreach (var p in _data.PendingInstalls) pending.Add(p);
+                root["PendingInstalls"] = pending;
+
+                var ignored = new JSONArray();
+                foreach (var i in _data.IgnoredVersions) ignored.Add(i);
+                root["IgnoredVersions"] = ignored;
+
+                File.WriteAllText(StoragePath, root.ToString());
             }
             catch (Exception ex)
             {
@@ -90,7 +109,7 @@ namespace Rooster.Services
 
                 string guid = parts[0];
                 string expectedVer = parts[1];
-                
+
                 if (plugins.TryGetValue(guid, out var info))
                 {
                     VerifyVersion(info, expectedVer, guid, newIgnored);
@@ -98,7 +117,7 @@ namespace Rooster.Services
                 else
                 {
                     var heuristicMatch = FindHeuristicMatch(guid, plugins.Values);
-                    
+
                     if (heuristicMatch != null)
                     {
                         RoosterPlugin.LogInfo($"[UpdateLoopPreventer] Heuristic Match: {guid} -> {heuristicMatch.Metadata.Name}");
@@ -113,7 +132,7 @@ namespace Rooster.Services
 
             foreach (var ig in newIgnored)
             {
-                if (!_data.IgnoredVersions.Contains(ig)) 
+                if (!_data.IgnoredVersions.Contains(ig))
                 {
                     RoosterPlugin.LogInfo($"[UpdateLoopPreventer] Ignoring version: {ig}");
                     _data.IgnoredVersions.Add(ig);
@@ -144,7 +163,7 @@ namespace Rooster.Services
                 if (match != null)
                 {
                     string currentVer = match.Metadata.Version.ToString();
-                    
+
                     if (currentVer == ignoredVer)
                     {
                         RoosterPlugin.LogInfo($"[UpdateLoopPreventer] Validating previously ignored update for {guid}. It is now installed.");
@@ -164,7 +183,7 @@ namespace Rooster.Services
         private static void VerifyVersion(PluginInfo info, string expectedVer, string originalKey, List<string> newIgnored)
         {
             string currentVer = info.Metadata.Version.ToString();
-            
+
             if (currentVer != expectedVer)
             {
                 RoosterPlugin.LogWarning($"[UpdateLoopPreventer] Update Failed for {info.Metadata.Name}! Expected: {expectedVer}, Found: {currentVer}. Ignoring {expectedVer}.");
@@ -177,8 +196,7 @@ namespace Rooster.Services
             foreach (var plugin in plugins)
             {
                 if (IsAcronymMatch(shortGuid, plugin.Metadata.Name)) return plugin;
-                
-                // Fuzzy fallback: contains (e.g. BuildUnlimiterMod vs BuildUnlimiter)
+
                 string nShort = ModMatcher.NormalizeName(shortGuid);
                 string nName = ModMatcher.NormalizeName(plugin.Metadata.Name);
                 if (nShort.Contains(nName) || nName.Contains(nShort)) return plugin;
@@ -206,7 +224,7 @@ namespace Rooster.Services
             string[] words = fullName.Split(new char[] { ' ', '-', '_', '.' }, StringSplitOptions.RemoveEmptyEntries);
             string initials = "";
             foreach (var word in words) if (word.Length > 0) initials += word[0];
-            
+
             return initials.Equals(acronym, StringComparison.OrdinalIgnoreCase);
         }
 
@@ -224,23 +242,21 @@ namespace Rooster.Services
 
                 if (ignoredGuid.Equals(guid, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (ignoredVer.Equals(version, StringComparison.OrdinalIgnoreCase)) 
+                    if (ignoredVer.Equals(version, StringComparison.OrdinalIgnoreCase))
                     {
-                        // RoosterPlugin.LogInfo($"[UpdateLoopPreventer] Ignored (Exact): {guid} v{version}");
                         return true;
                     }
 
-                    try 
+                    try
                     {
                         Version v1 = ParseVersionSafe(ignoredVer);
                         Version v2 = ParseVersionSafe(version);
-                        if (v1 != null && v2 != null && v1.Equals(v2)) 
+                        if (v1 != null && v2 != null && v1.Equals(v2))
                         {
-                             // RoosterPlugin.LogInfo($"[UpdateLoopPreventer] Ignored (Semantic): {guid} v{version}");
-                             return true;
+                            return true;
                         }
-                    } 
-                    catch {}
+                    }
+                    catch { }
                 }
             }
             return false;
@@ -248,12 +264,12 @@ namespace Rooster.Services
 
         private static Version ParseVersionSafe(string v)
         {
-            try 
+            try
             {
                 v = VersionComparer.CleanVersionString(v);
                 if (Version.TryParse(v, out var ver)) return ver;
-            } 
-            catch {}
+            }
+            catch { }
             return null;
         }
     }

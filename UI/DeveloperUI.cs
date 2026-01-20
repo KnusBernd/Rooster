@@ -25,7 +25,7 @@ namespace Rooster.UI
         private string _simTsPackage = "";
         private string _simUrl = "";
         private MatchReport _simReport;
-        
+
         // Simulator Picker State
         private bool _showLocalMods = false;
         private Vector2 _simulatorPluginScroll;
@@ -79,11 +79,11 @@ namespace Rooster.UI
         private void DrawInspector()
         {
             GUILayout.BeginHorizontal();
-            
+
             // Left Panel: Plugin List
             GUILayout.BeginVertical(GUILayout.Width(250));
             _inspectorScroll = GUILayout.BeginScrollView(_inspectorScroll, "Box");
-            
+
             foreach (var plugin in Chainloader.PluginInfos.Values)
             {
                 string displayName = plugin.Metadata.Name;
@@ -107,14 +107,14 @@ namespace Rooster.UI
                 GUILayout.Label($"<b>Selected: {_selectedPlugin.Metadata.Name}</b>");
                 GUILayout.Label($"GUID: {_selectedPlugin.Metadata.GUID}");
                 GUILayout.Label($"Version: {_selectedPlugin.Metadata.Version}");
-                
+
                 GUILayout.Space(10);
                 GUILayout.Label("<b>Match Analysis:</b>");
 
                 if (UpdateChecker.MatchedPackages.TryGetValue(_selectedPlugin.Metadata.GUID, out var pkg))
                 {
-                    GUILayout.Label($"Matched To: <color=green>{pkg.full_name}</color>");
-                    
+                    GUILayout.Label($"Matched To: <color=green>{pkg.FullName}</color>");
+
                     // Re-run matching to get the breakdown live
                     MatchReport report = ModMatcher.ScoreMatch(pkg, _selectedPlugin.Metadata.GUID, _selectedPlugin.Metadata.Name);
                     DrawReport(report);
@@ -123,9 +123,9 @@ namespace Rooster.UI
                 {
                     GUILayout.Label("Status: <color=red>Not Matched</color>");
                     GUILayout.Label("Top Candidates:");
-                    
+
                     // Scan for best candidates to explain why they failed
-                    if (UpdateChecker.CachedPackages != null) 
+                    if (UpdateChecker.CachedPackages != null)
                     {
                         var candidates = UpdateChecker.CachedPackages
                             .Select(p => new { Pkg = p, Report = ModMatcher.ScoreMatch(p, _selectedPlugin.Metadata.GUID, _selectedPlugin.Metadata.Name) })
@@ -134,7 +134,7 @@ namespace Rooster.UI
 
                         foreach (var c in candidates)
                         {
-                            GUILayout.Label($"Candidate: {c.Pkg.full_name} (Score: {c.Report.TotalScore})");
+                            GUILayout.Label($"Candidate: {c.Pkg.FullName} (Score: {c.Report.TotalScore})");
                             if (GUILayout.Button("View Breakdown"))
                             {
                                 DrawReport(c.Report);
@@ -155,7 +155,7 @@ namespace Rooster.UI
         private void DrawSimulator()
         {
             GUILayout.Label("<b>Local Mod Details (Simulation)</b>");
-            
+
             if (GUILayout.Button(_showLocalMods ? "Hide Mod List" : "Pick Installed Mod..."))
             {
                 _showLocalMods = !_showLocalMods;
@@ -193,7 +193,7 @@ namespace Rooster.UI
 
             GUILayout.Space(10);
             GUILayout.Label("<b>Target Thunderstore Package</b>");
-            
+
             GUILayout.BeginHorizontal();
             GUILayout.Label("Package Name:", GUILayout.Width(labelWidth));
             TextFieldWithPlaceholder(ref _simTsPackage, PLACEHOLDER_PKG);
@@ -214,11 +214,11 @@ namespace Rooster.UI
                 string usePkg = string.IsNullOrEmpty(_simTsPackage) ? PLACEHOLDER_PKG : _simTsPackage;
                 string useUrl = string.IsNullOrEmpty(_simUrl) ? PLACEHOLDER_URL : _simUrl;
 
-                var mockPkg = new ThunderstorePackage 
-                { 
-                    full_name = usePkg, 
-                    name = usePkg.Contains("-") ? usePkg.Split('-')[1] : usePkg,
-                    website_url = useUrl 
+                var mockPkg = new ThunderstorePackage
+                {
+                    FullName = usePkg,
+                    Name = usePkg.Contains("-") ? usePkg.Split('-')[1] : usePkg,
+                    WebsiteUrl = useUrl
                 };
                 _simReport = ModMatcher.ScoreMatch(mockPkg, useGuid, useName);
             }

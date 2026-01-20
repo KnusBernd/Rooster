@@ -15,7 +15,7 @@ namespace Rooster.Services
         public static IEnumerator DownloadFile(string url, string destinationPath, Action<bool, string> onComplete)
         {
             RoosterPlugin.LogInfo($"Starting download from {url} to {destinationPath}");
-            
+
             string dir = Path.GetDirectoryName(destinationPath);
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 

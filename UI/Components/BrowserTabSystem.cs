@@ -34,7 +34,7 @@ namespace Rooster.UI.Components
                 _refreshButton.SetInteractable(!isRefreshing);
                 _refreshButton.SetDisabled(isRefreshing);
             }
-            
+
             if (_loadingSpinner != null)
             {
                 _loadingSpinner.SetActive(isRefreshing);
@@ -50,7 +50,7 @@ namespace Rooster.UI.Components
 
         public void SetVisible(bool visible)
         {
-            foreach(var btn in _tabButtons)
+            foreach (var btn in _tabButtons)
             {
                 if (btn != null) btn.SetActive(visible);
             }
@@ -63,23 +63,23 @@ namespace Rooster.UI.Components
 
             var btnObj = UnityEngine.Object.Instantiate(_buttonTemplate.gameObject, parent);
             btnObj.name = "Tab_" + text;
-             
+
             var rect = btnObj.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, 1);
             rect.anchorMax = new Vector2(0.5f, 1);
             rect.pivot = new Vector2(0.5f, 1);
-            rect.sizeDelta = new Vector2(300, 80); 
+            rect.sizeDelta = new Vector2(300, 80);
             rect.anchoredPosition = new Vector2(xOffset, -10);
 
             var label = btnObj.GetComponentInChildren<TabletTextLabel>();
-             if (label != null)
+            if (label != null)
             {
                 label.text = text;
-                label.transform.localScale = new Vector3(0.5f, 0.5f, 1f); 
+                label.transform.localScale = new Vector3(0.5f, 0.5f, 1f);
                 label.labelType = TabletTextLabel.LabelType.Normal;
-                
+
                 var t = label.GetComponent<Text>();
-                if (t != null) 
+                if (t != null)
                 {
                     t.horizontalOverflow = HorizontalWrapMode.Overflow;
                     t.verticalOverflow = VerticalWrapMode.Overflow;
@@ -89,54 +89,55 @@ namespace Rooster.UI.Components
             var tabletBtn = btnObj.GetComponent<TabletButton>();
             if (tabletBtn != null)
             {
-                 UIHelpers.ApplyTheme(tabletBtn, theme);
-                 
-                 tabletBtn.OnClick = new TabletButtonEvent();
-                 tabletBtn.OnClick.AddListener((cursor) => {
-                     RoosterPlugin.LogInfo($"Tab Clicked: {text}");
-                     onClick?.Invoke();
-                 });
-                 tabletBtn.SetDisabled(false);
-                 tabletBtn.SetInteractable(true);
-                 tabletBtn.buttonType = TabletButton.ButtonType.Simple;
-                 tabletBtn.ResetStyles();
+                UIHelpers.ApplyTheme(tabletBtn, theme);
+
+                tabletBtn.OnClick = new TabletButtonEvent();
+                tabletBtn.OnClick.AddListener((cursor) =>
+                {
+                    RoosterPlugin.LogInfo($"Tab Clicked: {text}");
+                    onClick?.Invoke();
+                });
+                tabletBtn.SetDisabled(false);
+                tabletBtn.SetInteractable(true);
+                tabletBtn.buttonType = TabletButton.ButtonType.Simple;
+                tabletBtn.ResetStyles();
             }
-            
+
             var le = btnObj.GetComponent<LayoutElement>();
             if (le != null) UnityEngine.Object.Destroy(le);
-            
+
             _tabButtons.Add(btnObj);
         }
 
         private void CreateRefreshButton(Transform parent)
         {
             if (_buttonTemplate == null) return;
-            
+
             var btnObj = UnityEngine.Object.Instantiate(_buttonTemplate.gameObject, parent);
             btnObj.name = "RefreshButton";
-             
+
             var rect = btnObj.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, 1);
             rect.anchorMax = new Vector2(0.5f, 1);
-            rect.pivot = new Vector2(0.5f, 1);     
-            rect.sizeDelta = new Vector2(200, 80); 
-            rect.anchoredPosition = new Vector2(300, -10); 
+            rect.pivot = new Vector2(0.5f, 1);
+            rect.sizeDelta = new Vector2(200, 80);
+            rect.anchoredPosition = new Vector2(300, -10);
 
             var label = btnObj.GetComponentInChildren<TabletTextLabel>();
-             if (label != null)
+            if (label != null)
             {
                 _refreshLabel = label;
                 label.text = "Refresh";
                 label.transform.localScale = new Vector3(0.4f, 0.4f, 1f);
                 label.labelType = TabletTextLabel.LabelType.Normal;
-                
+
                 var t = label.GetComponent<Text>();
                 if (t != null)
                 {
                     t.horizontalOverflow = HorizontalWrapMode.Overflow;
                     t.verticalOverflow = VerticalWrapMode.Overflow;
                 }
-                
+
                 var lblRect = label.GetComponent<RectTransform>();
                 if (lblRect != null)
                 {
@@ -150,25 +151,26 @@ namespace Rooster.UI.Components
             var tabletBtn = btnObj.GetComponent<TabletButton>();
             if (tabletBtn != null)
             {
-                  UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Warning);
-                  
-                  tabletBtn.OnClick = new TabletButtonEvent();
-                  tabletBtn.OnClick.AddListener((cursor) => {
-                      OnRefreshClicked?.Invoke();
-                  });
-                  tabletBtn.SetDisabled(false);
-                  tabletBtn.SetInteractable(true);
-                  tabletBtn.buttonType = TabletButton.ButtonType.Simple;
-                  tabletBtn.ResetStyles();
-                  
-                  _refreshButton = tabletBtn;
+                UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Warning);
+
+                tabletBtn.OnClick = new TabletButtonEvent();
+                tabletBtn.OnClick.AddListener((cursor) =>
+                {
+                    OnRefreshClicked?.Invoke();
+                });
+                tabletBtn.SetDisabled(false);
+                tabletBtn.SetInteractable(true);
+                tabletBtn.buttonType = TabletButton.ButtonType.Simple;
+                tabletBtn.ResetStyles();
+
+                _refreshButton = tabletBtn;
             }
-            
+
             var le = btnObj.GetComponent<LayoutElement>();
             if (le != null) UnityEngine.Object.Destroy(le);
-            
+
             _tabButtons.Add(btnObj);
-            
+
             // Loading Spinner Logic
             GameObject playOnline = GameObject.Find("main Buttons/Play Online");
             if (playOnline != null)
@@ -179,7 +181,7 @@ namespace Rooster.UI.Components
                     _loadingSpinner = UnityEngine.Object.Instantiate(originalSpinner.gameObject, btnObj.transform);
                     _loadingSpinner.name = "RefreshSpinner";
                     _loadingSpinner.SetActive(false);
-                    
+
                     var spinRect = _loadingSpinner.GetComponent<RectTransform>();
                     if (spinRect != null)
                     {

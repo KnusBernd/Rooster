@@ -27,7 +27,7 @@ namespace Rooster.UI
             // Hide Browser components
             ModBrowserUI.SetVisible(false);
 
-            modal.ShowSimpleMessage($"{pkg.name} Details", "", null);
+            modal.ShowSimpleMessage($"{pkg.Name} Details", "", null);
             modal.simpleMessageText.gameObject.SetActive(false);
 
             modal.okButtonContainer.gameObject.SetActive(true);
@@ -35,7 +35,8 @@ namespace Rooster.UI
             if (okLabel != null) okLabel.text = "Back";
 
             modal.okButton.OnClick = new TabletButtonEvent();
-            modal.okButton.OnClick.AddListener((cursor) => {
+            modal.okButton.OnClick.AddListener((cursor) =>
+            {
                 Close();
                 ModBrowserUI.ShowModBrowser(true);
             });
@@ -68,12 +69,12 @@ namespace Rooster.UI
             vLayout.childForceExpandHeight = false;
 
             // Title & Author
-            UIHelpers.AddText(_detailsContainer.transform, pkg.name.Replace('_', ' '), 40, true, Color.white);
-            string author = pkg.full_name?.Split('-')[0] ?? "Unknown";
+            UIHelpers.AddText(_detailsContainer.transform, pkg.Name.Replace('_', ' '), 40, true, Color.white);
+            string author = pkg.FullName?.Split('-')[0] ?? "Unknown";
             UIHelpers.AddText(_detailsContainer.transform, $"by {author}", 24, false, new Color(0.8f, 0.8f, 0.8f));
 
             // Description
-            UIHelpers.AddText(_detailsContainer.transform, pkg.description, 20, false, Color.white);
+            UIHelpers.AddText(_detailsContainer.transform, pkg.Description, 20, false, Color.white);
 
             // Installation Logic
             CreateInstallButton(_detailsContainer.transform, pkg);
@@ -91,14 +92,24 @@ namespace Rooster.UI
             var label = tabletBtn.GetComponentInChildren<TabletTextLabel>();
 
             // Check installation status
-            bool isInstalled = UpdateChecker.IsPackageInstalled(pkg.full_name);
+            bool isInstalled = UpdateChecker.IsPackageInstalled(pkg.FullName);
 
             if (tabletBtn != null)
             {
                 var newScheme = tabletBtn.colorScheme; // Already cloned by CreateButton
-                
+
                 if (isInstalled)
                 {
+                    // SAFETY: Prevent BepInEx uninstallation
+                    if (pkg.FullName == "BepInEx-BepInExPack")
+                    {
+                        label.text = "Installed";
+                        tabletBtn.SetInteractable(false);
+                        tabletBtn.SetDisabled(true);
+                        UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Success);
+                        return;
+                    }
+
                     // Find the plugin info to enable uninstallation
                     string guid = null;
                     PluginInfo pluginInfo = null;
@@ -107,7 +118,7 @@ namespace Rooster.UI
                     // This is slightly expensive; we iterate installed plugins to find match
                     foreach (var pair in UpdateChecker.MatchedPackages)
                     {
-                        if (pair.Value.full_name == pkg.full_name)
+                        if (pair.Value.FullName == pkg.FullName)
                         {
                             guid = pair.Key;
                             break;
@@ -130,15 +141,16 @@ namespace Rooster.UI
                         UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Danger); // Red button
 
                         tabletBtn.OnClick = new TabletButtonEvent();
-                        tabletBtn.OnClick.AddListener((cursor) => {
-                             Debug.Log($"[UI Debug] Install/Uninstall button clicked for {pkg.name}");
-                             UIHelpers.ShowUninstallConfirmation(
-                                 Tablet.clickEventReceiver.modalOverlay, 
-                                 pluginInfo, 
-                                 _detailsContainer,
-                                 () => ShowDetails(pkg),
-                                 (deleteConfig) => HandleUninstallConfirmation(pkg, pluginInfo, deleteConfig)
-                            );
+                        tabletBtn.OnClick.AddListener((cursor) =>
+                        {
+                            Debug.Log($"[UI Debug] Install/Uninstall button clicked for {pkg.Name}");
+                            UIHelpers.ShowUninstallConfirmation(
+                                Tablet.clickEventReceiver.modalOverlay,
+                                pluginInfo,
+                                _detailsContainer,
+                                () => ShowDetails(pkg),
+                                (deleteConfig) => HandleUninstallConfirmation(pkg, pluginInfo, deleteConfig)
+                           );
                         });
 
                         tabletBtn.SetInteractable(true);
@@ -148,14 +160,14 @@ namespace Rooster.UI
                     }
                     else
                     {
-                         // Fallback if we can't link back to the DLL (should represent Installed)
+                        // Fallback if we can't link back to the DLL (should represent Installed)
                         label.text = "Installed";
                         tabletBtn.SetInteractable(false);
                         tabletBtn.SetDisabled(true);
                         UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Success);
                     }
                 }
-                else if (UpdateChecker.PendingInstalls.Contains(pkg.full_name))
+                else if (UpdateChecker.PendingInstalls.Contains(pkg.FullName))
                 {
                     label.text = "Install Pending (Restart required)";
                     tabletBtn.SetInteractable(false);
@@ -167,60 +179,63 @@ namespace Rooster.UI
                     UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Success);
 
                     tabletBtn.OnClick = new TabletButtonEvent();
-                    tabletBtn.OnClick.AddListener((cursor) => {
+                    tabletBtn.OnClick.AddListener((cursor) =>
+                    {
                         label.text = "Installing...";
                         tabletBtn.SetInteractable(false);
                         tabletBtn.SetDisabled(true);
-                        
+
                         // Force update visual state
                         if (tabletBtn.background != null) tabletBtn.background.color = UIHelpers.Themes.Success.Disabled;
 
-                        string url = pkg.latest.download_url;
+                        string url = pkg.Latest.DownloadUrl;
                         string extension = url.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? ".dll" : ".zip";
-                        string fileName = $"{pkg.name}{extension}";
+                        string fileName = $"{pkg.Name}{extension}";
                         string tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), fileName);
 
-                        RoosterPlugin.Instance.StartCoroutine(UpdateDownloader.DownloadFile(url, tempPath, (success, err) => {
-                                if (success)
+                        RoosterPlugin.Instance.StartCoroutine(UpdateDownloader.DownloadFile(url, tempPath, (success, err) =>
+                        {
+                            if (success)
+                            {
+                                UpdateInstaller.InstallPackage(tempPath, pkg, (installSuccess, installErr) =>
                                 {
-                                    UpdateInstaller.InstallPackage(tempPath, pkg, (installSuccess, installErr) => {
-                                        if (installSuccess)
-                                        {
-                                            label.text = "Install Pending (Restart required)";
-                                            UpdateChecker.PendingInstalls.Add(pkg.full_name);
-                                            
-                                            // Register with Loop Preventer
-                                            UpdateLoopPreventer.RegisterPendingInstall(pkg.name, pkg.latest.version_number);
-                                            
-                                            UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Warning); 
-                                        }
-                                        else
-                                        {
-                                            label.text = "Error";
-                                            RoosterPlugin.LogError($"Install error: {installErr}");
-                                        }
-                                    });
-                                }
-                                else
-                                {
-                                    label.text = "Failed";
-                                    tabletBtn.SetInteractable(true);
-                                    RoosterPlugin.LogError($"Download error: {err}");
-                                }
+                                    if (installSuccess)
+                                    {
+                                        label.text = "Install Pending (Restart required)";
+                                        UpdateChecker.PendingInstalls.Add(pkg.FullName);
+
+                                        // Register with Loop Preventer
+                                        UpdateLoopPreventer.RegisterPendingInstall(pkg.Name, pkg.Latest.VersionNumber);
+
+                                        UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Warning);
+                                    }
+                                    else
+                                    {
+                                        label.text = "Error";
+                                        RoosterPlugin.LogError($"Install error: {installErr}");
+                                    }
+                                });
+                            }
+                            else
+                            {
+                                label.text = "Failed";
+                                tabletBtn.SetInteractable(true);
+                                RoosterPlugin.LogError($"Download error: {err}");
+                            }
                         }));
                     });
-                    
+
                     tabletBtn.SetInteractable(true);
                     tabletBtn.SetDisabled(false);
                 }
-                
+
             }
         }
 
         private static void HandleUninstallConfirmation(ThunderstorePackage pkg, PluginInfo pluginInfo, bool deleteConfig)
         {
             Debug.Log("[UI Debug] CALLBACK HIT: HandleUninstallConfirmation");
-            Debug.Log($"[UI Debug] Params: Pkg={pkg?.name}, GUID={pluginInfo?.Metadata?.GUID}, DelConfig={deleteConfig}");
+            Debug.Log($"[UI Debug] Params: Pkg={pkg?.Name}, GUID={pluginInfo?.Metadata?.GUID}, DelConfig={deleteConfig}");
 
             if (pluginInfo == null)
             {
@@ -228,17 +243,18 @@ namespace Rooster.UI
                 return;
             }
 
-            ModUninstaller.UninstallMod(pluginInfo, deleteConfig, (success, err) => {
+            ModUninstaller.UninstallMod(pluginInfo, deleteConfig, (success, err) =>
+            {
                 Debug.Log($"[UI Debug] ModUninstaller returned. Success: {success}");
-                
+
                 var overlay = Tablet.clickEventReceiver.modalOverlay;
                 if (success)
                 {
-                    string msg = deleteConfig 
-                        ? "Uninstall staged; configuration deleted.\nThe DLL will be removed next time you restart the game." 
+                    string msg = deleteConfig
+                        ? "Uninstall staged; configuration deleted.\nThe DLL will be removed next time you restart the game."
                         : "Uninstall staged.\nThe DLL will be removed next time you restart the game.";
 
-                     UIHelpers.ShowRestartPrompt(overlay, "Uninstall Successful", msg, () => ShowDetails(pkg));
+                    UIHelpers.ShowRestartPrompt(overlay, "Uninstall Successful", msg, () => ShowDetails(pkg));
                 }
                 else
                 {
@@ -248,7 +264,7 @@ namespace Rooster.UI
                 }
             });
         }
-    
+
 
 
         public static void Close()

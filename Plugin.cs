@@ -18,12 +18,12 @@ namespace Rooster
         {
             Instance = this;
             RoosterConfig.Init(Config);
-            
+
             var harmony = new Harmony("de.knusbernd.rooster");
             harmony.PatchAll(typeof(MainMenuPopupPatch));
             harmony.PatchAll(typeof(MainMenuButtonPatch));
             harmony.PatchAll(typeof(PickCursorScrollPatch));
-            
+
             CleanupOldFiles();
 
             LogInfo($"Rooster loaded. [Build: {System.DateTime.Now}]");
@@ -31,7 +31,6 @@ namespace Rooster
 
         private void Start()
         {
-            // Initialize loop preventer here ensuring all plugins are loaded
             UpdateLoopPreventer.Init();
             StartCoroutine(UpdateChecker.CheckForUpdates());
             StartCoroutine(GitHubApi.BuildCache());
@@ -52,7 +51,7 @@ namespace Rooster
             string pluginsPath = Paths.PluginPath;
             if (!System.IO.Directory.Exists(pluginsPath)) return;
 
-            try 
+            try
             {
                 var oldFiles = System.IO.Directory.GetFiles(pluginsPath, "*.old*", System.IO.SearchOption.AllDirectories)
                     .Concat(System.IO.Directory.GetFiles(pluginsPath, "*.deleted*", System.IO.SearchOption.AllDirectories));
@@ -60,16 +59,16 @@ namespace Rooster
                 int deletedCount = 0;
                 foreach (var f in oldFiles)
                 {
-                    try 
-                    { 
-                        System.IO.File.Delete(f); 
+                    try
+                    {
+                        System.IO.File.Delete(f);
                         LogInfo($"[Cleanup] Deleted stale file: {System.IO.Path.GetFileName(f)}");
                         deletedCount++;
-                    } 
+                    }
                     catch { }
                 }
                 if (deletedCount > 0) LogInfo($"[Cleanup] Removed {deletedCount} stale files.");
-            } 
+            }
             catch { }
         }
 

@@ -114,13 +114,13 @@ namespace Rooster.UI
                     return HandleRestartChoice(modal, idx);
 
                 default:
-                    return true; 
+                    return true;
             }
         }
 
         private static bool HandleBetaWarningChoice(TabletModalOverlay modal, int idx)
         {
-            if (idx == 0) 
+            if (idx == 0)
             {
                 RoosterConfig.ShowBetaWarning.Value = false;
                 RoosterConfig.SaveConfig();
@@ -128,27 +128,29 @@ namespace Rooster.UI
 
             modal.Close();
             Patches.MainMenuPopupPatch.CurrentMenuState = Patches.MainMenuPopupPatch.MenuState.None;
-            ShowNextPopup(); 
+            ShowNextPopup();
             return false;
         }
 
         private static bool HandleUpdateMenuChoice(TabletModalOverlay modal, int idx)
         {
-            if (idx == 1 && !_isUpdating) 
+            if (idx == 1 && !_isUpdating)
             {
                 _isUpdating = true;
                 modal.simpleMessageText.text = "Initializing Update...";
                 modal.onOffContainer.gameObject.SetActive(false);
 
                 UpdateChecker.UpdateAll(
-                    (info, status) => {
+                    (info, status) =>
+                    {
                         if (modal?.simpleMessageText != null)
                         {
                             if (info != null) modal.simpleMessageText.text = $"{info.ModName}: {status}";
                             else modal.simpleMessageText.text = status;
                         }
                     },
-                    () => {
+                    () =>
+                    {
                         _isUpdating = false;
                         if (modal?.simpleMessageText != null)
                             modal.simpleMessageText.text = "Updates Complete!\nPlease restart manually.";
@@ -170,7 +172,7 @@ namespace Rooster.UI
                 );
                 return false;
             }
-            else if (idx == 0 && !_isUpdating) 
+            else if (idx == 0 && !_isUpdating)
             {
                 modal.Close();
                 return false;
@@ -180,12 +182,12 @@ namespace Rooster.UI
 
         private static bool HandleRestartChoice(TabletModalOverlay modal, int idx)
         {
-            if (idx == 1) 
+            if (idx == 1)
             {
                 Application.Quit();
                 return false;
             }
-            else 
+            else
             {
                 modal.Close();
                 return false;

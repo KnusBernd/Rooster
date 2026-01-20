@@ -12,6 +12,7 @@ namespace Rooster.UI
     public static class ModSettingsUI
     {
         private static PluginInfo _currentPlugin;
+        private static string _currentGuid;
         private static string _currentNamespace;
         private static string _thunderstoreFullName;
         private static GameObject _settingsContainer;
@@ -21,7 +22,7 @@ namespace Rooster.UI
         private static TabletButton _ignoreOnBtn;
         private static TabletButton _ignoreOffBtn;
 
-        public static void ShowModSettings(PluginInfo plugin, string thunderstoreFullName)
+        public static void ShowModSettings(PluginInfo plugin, string guid, string thunderstoreFullName)
         {
             if (Tablet.clickEventReceiver == null || Tablet.clickEventReceiver.modalOverlay == null)
             {
@@ -30,6 +31,7 @@ namespace Rooster.UI
             }
 
             _currentPlugin = plugin;
+            _currentGuid = guid;
             _thunderstoreFullName = thunderstoreFullName;
             _currentNamespace = ExtractNamespace(thunderstoreFullName);
             Patches.MainMenuPopupPatch.CurrentMenuState = Patches.MainMenuPopupPatch.MenuState.ModSettings;
@@ -38,19 +40,22 @@ namespace Rooster.UI
 
             ModMenuUI.DestroyUI();
 
-            modal.ShowSimpleMessage($"{plugin.Metadata.Name} Settings", "", null);
+            string title = plugin != null ? plugin.Metadata.Name : "BepInEx";
+            modal.ShowSimpleMessage($"{title} Settings", "", null);
 
             modal.okButtonContainer.gameObject.SetActive(true);
             var okLabel = modal.okButton.GetComponentInChildren<TabletTextLabel>();
             if (okLabel != null) okLabel.text = "Back";
-            
+
             modal.okButton.OnClick = new TabletButtonEvent();
-            modal.okButton.OnClick.AddListener((cursor) => {
-                RoosterPlugin.LogInfo($"Returning to Mod List from {plugin.Metadata.Name}");
+            modal.okButton.OnClick.AddListener((cursor) =>
+            {
+                string logName = plugin != null ? plugin.Metadata.Name : "BepInEx";
+                RoosterPlugin.LogInfo($"Returning to Mod List from {logName}");
                 CleanupCustomUI();
                 ModMenuUI.ShowModMenu();
             });
-            
+
             modal.onOffContainer.gameObject.SetActive(false);
             modal.simpleMessageText.gameObject.SetActive(false);
 
@@ -76,7 +81,7 @@ namespace Rooster.UI
             _settingsContainer = new GameObject("ModSettingsContainer", typeof(RectTransform));
             _settingsContainer.layer = layer;
             _settingsContainer.transform.SetParent(parent, false);
-            
+
             var containerRect = _settingsContainer.GetComponent<RectTransform>();
             containerRect.anchorMin = Vector2.zero;
             containerRect.anchorMax = Vector2.one;
@@ -93,27 +98,29 @@ namespace Rooster.UI
             layout.childControlHeight = true;
             layout.childForceExpandHeight = false;
 
-            string guid = _currentPlugin.Metadata.GUID;
+            string guid = _currentGuid;
             bool autoUpdateEnabled = RoosterConfig.IsModAutoUpdate(guid);
             bool isIgnored = RoosterConfig.IsModIgnored(guid);
             bool isDiscovered = !string.IsNullOrEmpty(_thunderstoreFullName);
 
-            UIHelpers.CreateToggleRow(_settingsContainer.transform.GetComponent<RectTransform>(), modal, "Auto-Update", autoUpdateEnabled, (val) => {
-                    RoosterConfig.SetModAutoUpdate(guid, val);
-                }, out _autoUpdateOnBtn, out _autoUpdateOffBtn);
+            UIHelpers.CreateToggleRow(_settingsContainer.transform.GetComponent<RectTransform>(), modal, "Auto-Update", autoUpdateEnabled, (val) =>
+            {
+                RoosterConfig.SetModAutoUpdate(guid, val);
+            }, out _autoUpdateOnBtn, out _autoUpdateOffBtn);
 
-            UIHelpers.CreateToggleRow(_settingsContainer.transform.GetComponent<RectTransform>(), modal, "Ignore Updates", isIgnored, (val) => {
-                 RoosterConfig.SetModIgnored(guid, val);
-                 if (val) 
-                 {
-                     if (_autoUpdateOnBtn != null) _autoUpdateOnBtn.SetDisabled(true);
-                     if (_autoUpdateOffBtn != null) _autoUpdateOffBtn.SetDisabled(true);
-                 }
-                 else if (isDiscovered)
-                 {
-                     if (_autoUpdateOnBtn != null) _autoUpdateOnBtn.SetDisabled(false);
-                     if (_autoUpdateOffBtn != null) _autoUpdateOffBtn.SetDisabled(false);
-                 }
+            UIHelpers.CreateToggleRow(_settingsContainer.transform.GetComponent<RectTransform>(), modal, "Ignore Updates", isIgnored, (val) =>
+            {
+                RoosterConfig.SetModIgnored(guid, val);
+                if (val)
+                {
+                    if (_autoUpdateOnBtn != null) _autoUpdateOnBtn.SetDisabled(true);
+                    if (_autoUpdateOffBtn != null) _autoUpdateOffBtn.SetDisabled(true);
+                }
+                else if (isDiscovered)
+                {
+                    if (_autoUpdateOnBtn != null) _autoUpdateOnBtn.SetDisabled(false);
+                    if (_autoUpdateOffBtn != null) _autoUpdateOffBtn.SetDisabled(false);
+                }
             }, out _ignoreOnBtn, out _ignoreOffBtn);
 
             if (!isDiscovered || isIgnored)
@@ -131,66 +138,74 @@ namespace Rooster.UI
             bool isPendingUninstall = UpdateChecker.PendingUninstalls.Contains(guid);
             if (isPendingUninstall)
             {
-                 if (_autoUpdateOnBtn != null) _autoUpdateOnBtn.SetDisabled(true);
-                 if (_autoUpdateOffBtn != null) _autoUpdateOffBtn.SetDisabled(true);
-                 if (_ignoreOnBtn != null) _ignoreOnBtn.SetDisabled(true);
-                 if (_ignoreOffBtn != null) _ignoreOffBtn.SetDisabled(true);
+                if (_autoUpdateOnBtn != null) _autoUpdateOnBtn.SetDisabled(true);
+                if (_autoUpdateOffBtn != null) _autoUpdateOffBtn.SetDisabled(true);
+                if (_ignoreOnBtn != null) _ignoreOnBtn.SetDisabled(true);
+                if (_ignoreOffBtn != null) _ignoreOffBtn.SetDisabled(true);
             }
 
             // Uninstall Button
-            if (!guid.Equals("de.knusbernd.rooster", StringComparison.OrdinalIgnoreCase))
+            if (!guid.Equals("de.knusbernd.rooster", StringComparison.OrdinalIgnoreCase) &&
+                !guid.Equals("bepinex", StringComparison.OrdinalIgnoreCase))
             {
-                 var actionRow = new GameObject("ActionRow", typeof(RectTransform));
-                 actionRow.transform.SetParent(_settingsContainer.transform, false);
-                 
-                 var actionLayout = actionRow.AddComponent<HorizontalLayoutGroup>();
-                 actionLayout.childAlignment = TextAnchor.MiddleCenter;
-                 actionLayout.childForceExpandWidth = false;
-                 actionLayout.childForceExpandHeight = false;
+                var actionRow = new GameObject("ActionRow", typeof(RectTransform));
+                actionRow.transform.SetParent(_settingsContainer.transform, false);
 
-                 var rowLe = actionRow.AddComponent<LayoutElement>();
-                 rowLe.preferredHeight = 110; 
-                 rowLe.minHeight = 90;
+                var actionLayout = actionRow.AddComponent<HorizontalLayoutGroup>();
+                actionLayout.childAlignment = TextAnchor.MiddleCenter;
+                actionLayout.childForceExpandWidth = false;
+                actionLayout.childForceExpandHeight = false;
 
-                 var btnText = isPendingUninstall ? "Uninstall Pending (Restart required)" : "Uninstall Mod";
-                 var uninstallBtn = UIHelpers.CreateButton(actionRow.transform, modal.okButton, btnText, 450, 80);
-                 
-                 if (isPendingUninstall)
-                 {
-                     UIHelpers.ApplyTheme(uninstallBtn, UIHelpers.Themes.Neutral);
-                     uninstallBtn.SetDisabled(true);
-                 }
-                 else
-                 {
-                     UIHelpers.ApplyTheme(uninstallBtn, UIHelpers.Themes.Danger);
-                     uninstallBtn.OnClick = new TabletButtonEvent();
-                     uninstallBtn.OnClick.AddListener((c) => {
-                         UIHelpers.ShowUninstallConfirmation(modal, _currentPlugin, _settingsContainer, 
-                         () => ShowModSettings(_currentPlugin, _thunderstoreFullName), 
-                         (deleteConfig) => {
-                             Services.ModUninstaller.UninstallMod(_currentPlugin, deleteConfig, (success, err) => {
-                                 if (success) {
-                                     // Clean up the uninstall UI (toggles/buttons) before showing success message
-                                     var textObj = modal.simpleMessageText != null ? modal.simpleMessageText.gameObject : null;
-                                     UIHelpers.CleanContainer(modal.simpleMessageContainer.gameObject, textObj);
-                                     
-                                     string msg = deleteConfig 
-                                        ? "Uninstall staged; configuration deleted. Dll will be cleaned up with the next Restart." 
+                var rowLe = actionRow.AddComponent<LayoutElement>();
+                rowLe.preferredHeight = 110;
+                rowLe.minHeight = 90;
+
+                var btnText = isPendingUninstall ? "Uninstall Pending (Restart required)" : "Uninstall Mod";
+                var uninstallBtn = UIHelpers.CreateButton(actionRow.transform, modal.okButton, btnText, 450, 80);
+
+                if (isPendingUninstall)
+                {
+                    UIHelpers.ApplyTheme(uninstallBtn, UIHelpers.Themes.Neutral);
+                    uninstallBtn.SetDisabled(true);
+                }
+                else
+                {
+                    UIHelpers.ApplyTheme(uninstallBtn, UIHelpers.Themes.Danger);
+                    uninstallBtn.OnClick = new TabletButtonEvent();
+                    uninstallBtn.OnClick.AddListener((c) =>
+                    {
+                        UIHelpers.ShowUninstallConfirmation(modal, _currentPlugin, _settingsContainer,
+                        () => ShowModSettings(_currentPlugin, _currentGuid, _thunderstoreFullName),
+                        (deleteConfig) =>
+                        {
+                            Services.ModUninstaller.UninstallMod(_currentPlugin, deleteConfig, (success, err) =>
+                            {
+                                if (success)
+                                {
+                                    // Clean up the uninstall UI (toggles/buttons) before showing success message
+                                    var textObj = modal.simpleMessageText != null ? modal.simpleMessageText.gameObject : null;
+                                    UIHelpers.CleanContainer(modal.simpleMessageContainer.gameObject, textObj);
+
+                                    string msg = deleteConfig
+                                        ? "Uninstall staged; configuration deleted. Dll will be cleaned up with the next Restart."
                                         : "Uninstall staged. Dll will be cleaned up with the next Restart.";
 
-                                    UIHelpers.ShowRestartPrompt(modal, "Uninstall Successful", msg, () => {
-                                       CleanupCustomUI();
-                                       modal.Close();
+                                    UIHelpers.ShowRestartPrompt(modal, "Uninstall Successful", msg, () =>
+                                    {
+                                        CleanupCustomUI();
+                                        modal.Close();
                                     });
-                                 } else {
-                                     var textObj = modal.simpleMessageText != null ? modal.simpleMessageText.gameObject : null;
-                                     UIHelpers.CleanContainer(modal.simpleMessageContainer.gameObject, textObj);
-                                     modal.ShowSimpleMessage("Uninstall Failed", err, () => ShowModSettings(_currentPlugin, _thunderstoreFullName));
-                                 }
-                             });
-                         });
-                     });
-                 }
+                                }
+                                else
+                                {
+                                    var textObj = modal.simpleMessageText != null ? modal.simpleMessageText.gameObject : null;
+                                    UIHelpers.CleanContainer(modal.simpleMessageContainer.gameObject, textObj);
+                                    modal.ShowSimpleMessage("Uninstall Failed", err, () => ShowModSettings(_currentPlugin, _currentGuid, _thunderstoreFullName));
+                                }
+                            });
+                        });
+                    });
+                }
             }
 
             LayoutRebuilder.ForceRebuildLayoutImmediate(containerRect);

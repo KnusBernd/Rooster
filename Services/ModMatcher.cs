@@ -36,7 +36,7 @@ namespace Rooster.Services
 
             if (bestScore >= MIN_MATCH_SCORE)
             {
-                RoosterPlugin.LogInfo($"Heuristic Match: {modName} ({guid}) -> {bestMatch.full_name} (Score: {bestScore})");
+                RoosterPlugin.LogInfo($"Heuristic Match: {modName} ({guid}) -> {bestMatch.FullName} (Score: {bestScore})");
                 return bestMatch;
             }
 
@@ -47,131 +47,119 @@ namespace Rooster.Services
         public static MatchReport ScoreMatch(ThunderstorePackage pkg, string localGuid, string localName)
         {
             MatchReport report = new MatchReport();
-            
-            string tsFullName = pkg.full_name ?? "";
+
+            string tsFullName = pkg.FullName ?? "";
             string[] parts = tsFullName.Split('-');
             string tsNamespace = parts.Length > 0 ? parts[0] : "";
-            string tsName = parts.Length > 1 ? parts[1] : pkg.name ?? "";
+            string tsName = parts.Length > 1 ? parts[1] : pkg.Name ?? "";
 
             string nLocalGuid = NormalizeName(localGuid);
             string nLocalName = NormalizeName(localName);
             string nTsName = NormalizeName(tsName);
             string nTsNamespace = NormalizeName(tsNamespace);
 
-            // Exact name match
-            if (nLocalName == nTsName) 
+            if (nLocalName == nTsName)
             {
                 report.AddScore("Exact Plugin Name Match", 70);
             }
             else if (nLocalName.Length > 5 && nTsName.Length > 5)
             {
-                 // Fuzzy Prefix Match (e.g. "LevelLoadingOptimizer" vs "LevelLoadingOptimization")
-                 int commonPrefix = GetCommonPrefixLength(nLocalName, nTsName);
-                 float ratio = (float)commonPrefix / Math.Max(nLocalName.Length, nTsName.Length);
-                 
-                 if (ratio >= 0.75f) 
-                 {
+                int commonPrefix = GetCommonPrefixLength(nLocalName, nTsName);
+                float ratio = (float)commonPrefix / Math.Max(nLocalName.Length, nTsName.Length);
+
+                if (ratio >= 0.75f)
+                {
                     report.AddScore($"Fuzzy Match (Prefix Ratio {ratio:F2})", 60);
-                 }
-                 
-                 // Name containment (e.g. "CustomBlocks" in "SuperCustomBlocks")
-                 else if (nTsName.Contains(nLocalName) || nLocalName.Contains(nTsName))
-                 {
-                     report.AddScore("Name Containment", 50);
-                 }
+                }
+                else if (nTsName.Contains(nLocalName) || nLocalName.Contains(nTsName))
+                {
+                    report.AddScore("Name Containment", 50);
+                }
             }
-            
-            // GUID matches package name
-            if (nLocalGuid == nTsName) 
+
+            if (nLocalGuid == nTsName)
             {
                 report.AddScore("GUID matches Package Name", 80);
             }
-            
-            // GUID contains namespace and name
-            if (nLocalGuid.Contains(nTsNamespace) && nLocalGuid.Contains(nTsName)) 
+
+            if (nLocalGuid.Contains(nTsNamespace) && nLocalGuid.Contains(nTsName))
             {
                 report.AddScore("GUID contains Author + ModName", 100);
             }
-            else if (nLocalGuid.Contains(nTsName)) 
+            else if (nLocalGuid.Contains(nTsName))
             {
-                // Partial containment
-                // Longer names provide more confidence
-                if (nTsName.Length >= 12) 
+                if (nTsName.Length >= 12)
                     report.AddScore("GUID contains Long Package Name", 65);
-                else 
-                    report.AddScore("GUID contains Short Package Name", 50); 
+                else
+                    report.AddScore("GUID contains Short Package Name", 50);
             }
 
-            // Token-based matching for formatting variations
             HashSet<string> localTokens = Tokenize(localName);
             HashSet<string> remoteTokens = Tokenize(tsName);
-            
+
             if (localTokens.Count > 0 && remoteTokens.Count > 0)
             {
                 int shared = 0;
-                foreach(var rt in remoteTokens)
+                foreach (var rt in remoteTokens)
                 {
                     if (localTokens.Contains(rt)) shared++;
                 }
 
                 float overlap = (float)shared / Math.Max(localTokens.Count, remoteTokens.Count);
-                
-                // Safety check: requires at least 2 tokens to match, or 1 token if total tokens are few
+
                 bool safeMatch = shared >= 2 || (shared == 1 && Math.Max(localTokens.Count, remoteTokens.Count) <= 2);
 
                 if (safeMatch)
                 {
-                    if (overlap >= 0.8f) // High overlap (e.g. UCHTeams vs TeamsUCH)
+                    if (overlap >= 0.8f)
                     {
                         report.AddScore($"High Token Overlap ({overlap:P0})", 75);
                     }
-                    else if (overlap >= 0.65f) // Good overlap (e.g. VirtualOutfitBooth vs VirtualBooth -> 0.67)
+                    else if (overlap >= 0.65f)
                     {
                         report.AddScore($"Good Token Overlap ({overlap:P0})", 65);
                     }
-                    else if (overlap >= 0.5f) // Moderate overlap
+                    else if (overlap >= 0.5f)
                     {
                         report.AddScore($"Moderate Token Overlap ({overlap:P0})", 55);
                     }
                 }
             }
 
-            // Website/Repo Name Match (e.g. "CustomBlocks" vs "https://github.com/Woedroe/UCH-CustomBlocks")
-            if (!string.IsNullOrEmpty(pkg.website_url))
+            if (!string.IsNullOrEmpty(pkg.WebsiteUrl))
             {
-                string url = pkg.website_url.TrimEnd('/');
+                string url = pkg.WebsiteUrl.TrimEnd('/');
                 int lastSlash = url.LastIndexOf('/');
                 if (lastSlash >= 0 && lastSlash < url.Length - 1)
                 {
                     string repoName = url.Substring(lastSlash + 1);
                     string nRepoName = NormalizeName(repoName);
-                    
-                     if (nRepoName == nLocalName) 
+
+                    if (nRepoName == nLocalName)
                     {
                         report.AddScore("URL Repo Name matches Plugin Name", 70);
                     }
                     else if (nRepoName.Contains(nLocalName) || nLocalName.Contains(nRepoName))
                     {
-                         // Require sufficient length to avoid false positives with short names
-                         if (nLocalName.Length > 4) 
-                         {
-                             report.AddScore("URL Repo Name overlaps Plugin Name", 70);
-                         }
-                         else
-                         {
-                             report.AddScore("URL Repo Name overlap ignored (Short Name)", 0);
-                         }
+                        if (nLocalName.Length > 4)
+                        {
+                            report.AddScore("URL Repo Name overlaps Plugin Name", 70);
+                        }
+                        else
+                        {
+                            report.AddScore("URL Repo Name overlap ignored (Short Name)", 0);
+                        }
                     }
                     else
                     {
-                         report.AddScore($"URL Repo Name mismatch ('{repoName}' vs Local)", 0);
+                        report.AddScore($"URL Repo Name mismatch ('{repoName}' vs Local)", 0);
                     }
                 }
             }
 
             if (report.TotalScore > 40 && report.TotalScore < MIN_MATCH_SCORE)
             {
-                RoosterPlugin.LogInfo($"Close Heuristic Miss: {localName} vs {pkg.full_name} -> Score: {report.TotalScore}");
+                RoosterPlugin.LogInfo($"Close Heuristic Miss: {localName} vs {pkg.FullName} -> Score: {report.TotalScore}");
             }
 
             return report;
@@ -183,7 +171,7 @@ namespace Rooster.Services
             if (string.IsNullOrEmpty(input)) return "";
             char[] arr = new char[input.Length];
             int idx = 0;
-            foreach(char c in input)
+            foreach (char c in input)
             {
                 if (char.IsLetterOrDigit(c))
                 {
@@ -202,14 +190,14 @@ namespace Rooster.Services
             int start = 0;
             for (int i = 1; i < input.Length; i++)
             {
-                bool isTransition = (char.IsLower(input[i-1]) && char.IsUpper(input[i])) || !char.IsLetterOrDigit(input[i]);
-                
+                bool isTransition = (char.IsLower(input[i - 1]) && char.IsUpper(input[i])) || !char.IsLetterOrDigit(input[i]);
+
                 if (isTransition)
                 {
                     string sub = input.Substring(start, i - start);
                     sub = NormalizeName(sub);
                     if (sub.Length > 2) tokens.Add(sub);
-                    
+
                     if (!char.IsLetterOrDigit(input[i])) start = i + 1;
                     else start = i;
                 }

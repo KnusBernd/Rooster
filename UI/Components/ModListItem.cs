@@ -9,15 +9,15 @@ namespace Rooster.UI.Components
     public static class ModListItem
     {
         public static GameObject Create(
-            TabletButton template, 
-            RectTransform parent, 
-            ThunderstorePackage pkg, 
+            TabletButton template,
+            RectTransform parent,
+            ThunderstorePackage pkg,
             Action<ThunderstorePackage> onClick)
         {
             if (template == null) return null;
 
             var btnObj = UnityEngine.Object.Instantiate(template.gameObject, parent);
-            btnObj.name = "Pkg_" + pkg.name;
+            btnObj.name = "Pkg_" + pkg.Name;
 
             SetupLabel(btnObj, pkg);
             SetupButton(btnObj, template, pkg, onClick);
@@ -34,27 +34,27 @@ namespace Rooster.UI.Components
 
             // Extract author/namespace from full_name (e.g., "Author-ModName")
             string author = "Unknown";
-            if (!string.IsNullOrEmpty(pkg.full_name))
+            if (!string.IsNullOrEmpty(pkg.FullName))
             {
-                int hyphenIdx = pkg.full_name.IndexOf('-');
+                int hyphenIdx = pkg.FullName.IndexOf('-');
                 if (hyphenIdx > 0)
                 {
-                    author = pkg.full_name.Substring(0, hyphenIdx);
+                    author = pkg.FullName.Substring(0, hyphenIdx);
                 }
             }
 
-            string categoryStr = (pkg.categories != null && pkg.categories.Count > 0) 
-                                    ? string.Join(", ", pkg.categories) 
+            string categoryStr = (pkg.Categories != null && pkg.Categories.Count > 0)
+                                    ? string.Join(", ", pkg.Categories)
                                     : "Mod";
-                                    
-            label.text = $"{pkg.name.Replace('_', ' ')} v{pkg.latest.version_number}\n<i><size=18>by {author} | {categoryStr}</size></i>";
+
+            label.text = $"{pkg.Name.Replace('_', ' ')} v{pkg.Latest.VersionNumber}\n<i><size=18>by {author} | {categoryStr}</size></i>";
             label.labelType = TabletTextLabel.LabelType.SmallText;
-            
+
             var uiText = label.GetComponent<Text>();
-            if (uiText != null) 
+            if (uiText != null)
             {
                 uiText.supportRichText = true;
-                uiText.verticalOverflow = VerticalWrapMode.Overflow; 
+                uiText.verticalOverflow = VerticalWrapMode.Overflow;
             }
         }
 
@@ -64,16 +64,17 @@ namespace Rooster.UI.Components
             if (tabletBtn == null) return;
 
             if (tabletBtn.colorScheme == null) tabletBtn.colorScheme = template.colorScheme;
-            
+
             tabletBtn.OnClick = new TabletButtonEvent();
-            tabletBtn.OnClick.AddListener((cursor) => {
+            tabletBtn.OnClick.AddListener((cursor) =>
+            {
                 onClick?.Invoke(pkg);
             });
-            
+
             tabletBtn.SetDisabled(false);
             tabletBtn.SetInteractable(true);
             tabletBtn.ResetStyles();
-            
+
             // Apply Theme based on status
             UIHelpers.ButtonTheme theme = GetThemeForPackage(pkg);
             UIHelpers.ApplyTheme(tabletBtn, theme);
@@ -81,15 +82,15 @@ namespace Rooster.UI.Components
 
         private static UIHelpers.ButtonTheme GetThemeForPackage(ThunderstorePackage pkg)
         {
-            if (UpdateChecker.IsPendingUninstall(pkg.full_name))
+            if (UpdateChecker.IsPendingUninstall(pkg.FullName))
             {
                 return UIHelpers.Themes.Danger;
             }
-            if (UpdateChecker.IsPackageInstalled(pkg.full_name))
+            if (UpdateChecker.IsPackageInstalled(pkg.FullName))
             {
                 return UIHelpers.Themes.Success;
             }
-            if (UpdateChecker.PendingInstalls.Contains(pkg.full_name))
+            if (UpdateChecker.PendingInstalls.Contains(pkg.FullName))
             {
                 return UIHelpers.Themes.Warning;
             }

@@ -101,6 +101,7 @@
     <Compile Include="Models\ModUpdateInfo.cs" />
     <Compile Include="Services\ThunderstoreApi.cs" />
     <Compile Include="Services\GitHubApi.cs" />
+    <Compile Include="Services\SimpleJSON.cs" />
     <Compile Include="Services\ModMatcher.cs" />
     <Compile Include="Services\ModUninstaller.cs" />
     <Compile Include="Services\VersionComparer.cs" />

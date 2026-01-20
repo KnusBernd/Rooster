@@ -21,22 +21,23 @@ namespace Rooster.Services
         public static IEnumerator BuildCache()
         {
             if (IsCaching || IsCacheReady) yield break;
-            
+
             IsCaching = true;
             LastError = null;
-            RoosterPlugin.LogInfo("Starting GitHub cache build...");
+            // RoosterPlugin.LogInfo("Starting GitHub cache build...");
 
-            // 1. Try Load from Disk
+            // RoosterPlugin.LogInfo("Starting GitHub cache build...");
+
             var cached = LoadCache();
 
             if (cached != null)
             {
                 long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 int duration = RoosterConfig.GitHubCacheDuration.Value;
-                
+
                 if (now - cached.Timestamp < duration && cached.Packages != null && cached.Packages.Count > 0)
                 {
-                    RoosterPlugin.LogInfo($"Using Valid Disk Cache (Age: {(now - cached.Timestamp)}s)");
+                    // RoosterPlugin.LogInfo($"Using Valid Disk Cache (Age: {(now - cached.Timestamp)}s)");
                     CachedPackages = cached.Packages;
                     IsCacheReady = true;
                     IsCaching = false;
@@ -44,15 +45,16 @@ namespace Rooster.Services
                 }
                 else
                 {
-                    RoosterPlugin.LogInfo("Disk Cache expired. Attempting to fetch fresh...");
+                    // RoosterPlugin.LogInfo("Disk Cache expired. Attempting to fetch fresh...");
                 }
             }
 
-            yield return FetchCuratedList((packages, error) => {
+            yield return FetchCuratedList((packages, error) =>
+            {
                 if (error != null)
                 {
                     bool isRateLimit = error.Contains("Rate Limit") || error.Contains("403") || error.Contains("429");
-                    
+
                     if (isRateLimit && cached != null && cached.Packages != null && cached.Packages.Count > 0)
                     {
                         RoosterPlugin.LogWarning($"GitHub Rate Limit hit. Falling back to stale disk cache (Age: {(DateTimeOffset.UtcNow.ToUnixTimeSeconds() - cached.Timestamp)}s).");
@@ -61,34 +63,37 @@ namespace Rooster.Services
                     }
                     else
                     {
-                         RoosterPlugin.LogError($"GitHub Code Cache failed: {error}");
-                         LastError = error;
+                        RoosterPlugin.LogError($"GitHub Code Cache failed: {error}");
+                        LastError = error;
                     }
                 }
                 else
                 {
                     CachedPackages = packages;
                     IsCacheReady = true;
-                    RoosterPlugin.LogInfo($"GitHub Cache Built: {packages.Count} mods.");
                     SaveCache(packages);
                 }
                 IsCaching = false;
             });
         }
-        
+
         private static void SaveCache(List<ThunderstorePackage> packages)
         {
             try
             {
-                var cache = new RoosterCache
+                var root = new JSONObject();
+                root["Timestamp"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+                var arr = new JSONArray();
+                foreach (var pkg in packages)
                 {
-                    Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                    Packages = packages
-                };
-                string json = UnityEngine.JsonUtility.ToJson(cache, true);
+                    arr.Add(pkg.ToJson());
+                }
+                root["Packages"] = arr;
+
+                string json = root.ToString();
                 string path = System.IO.Path.Combine(RoosterConfig.RoosterConfigPath, "RoosterCache.json");
                 System.IO.File.WriteAllText(path, json);
-                RoosterPlugin.LogInfo($"Saved GitHub cache to {path}");
             }
             catch (Exception ex)
             {
@@ -104,7 +109,23 @@ namespace Rooster.Services
                 if (System.IO.File.Exists(path))
                 {
                     string json = System.IO.File.ReadAllText(path);
-                    return UnityEngine.JsonUtility.FromJson<RoosterCache>(json);
+                    var root = JSON.Parse(json);
+                    if (root != null)
+                    {
+                        var cache = new RoosterCache();
+                        cache.Timestamp = root["Timestamp"].AsLong;
+                        cache.Packages = new List<ThunderstorePackage>();
+
+                        var arr = root["Packages"].AsArray;
+                        if (arr != null)
+                        {
+                            foreach (JSONNode node in arr)
+                            {
+                                cache.Packages.Add(ThunderstorePackage.FromJson(node));
+                            }
+                        }
+                        return cache;
+                    }
                 }
             }
             catch (Exception ex)
@@ -116,80 +137,77 @@ namespace Rooster.Services
 
         public static IEnumerator FetchCuratedList(Action<List<ThunderstorePackage>, string> onComplete)
         {
-             // Use configured URL
-             string url = RoosterConfig.GitHubCuratedUrl.Value;
-             RoosterPlugin.LogInfo($"Fetching curated list from: {url}");
-            
-             var allPackages = new List<ThunderstorePackage>();
+            string url = RoosterConfig.GitHubCuratedUrl.Value;
+            // RoosterPlugin.LogInfo($"Fetching curated list from: {url}");
 
-             using (UnityWebRequest www = UnityWebRequest.Get(url))
-             {
-                 yield return www.SendWebRequest();
+            var allPackages = new List<ThunderstorePackage>();
 
-                 if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
-                 {
-                     string errorMsg = $"Failed to list: {www.error}";
-                     RoosterPlugin.LogError(errorMsg);
-                     onComplete?.Invoke(allPackages, errorMsg);
-                     yield break;
-                 }
+            using (UnityWebRequest www = UnityWebRequest.Get(url))
+            {
+                yield return www.SendWebRequest();
 
-                 List<CuratedRepo> repos = new List<CuratedRepo>();
-                 int completed = 0;
+                if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
+                {
+                    string errorMsg = $"Failed to list: {www.error}";
+                    RoosterPlugin.LogError(errorMsg);
+                    onComplete?.Invoke(allPackages, errorMsg);
+                    yield break;
+                }
 
-                 try
-                 {
-                     string json = www.downloadHandler.text;
-                     repos = ParseRepoList(json);
-                 }
-                 catch (Exception ex)
-                 {
-                     string errorMsg = $"JSON Parse Error: {ex.Message}";
-                     RoosterPlugin.LogError(errorMsg);
-                     onComplete?.Invoke(allPackages, errorMsg);
-                     yield break;
-                 }
+                List<CuratedRepo> repos = new List<CuratedRepo>();
+                int completed = 0;
 
-                 if (repos.Count == 0)
-                 {
-                     onComplete?.Invoke(allPackages, null);
-                     yield break;
-                 }
+                try
+                {
+                    string json = www.downloadHandler.text;
+                    repos = ParseRepoList(json);
+                }
+                catch (Exception ex)
+                {
+                    string errorMsg = $"JSON Parse Error: {ex.Message}";
+                    RoosterPlugin.LogError(errorMsg);
+                    onComplete?.Invoke(allPackages, errorMsg);
+                    yield break;
+                }
 
-                 bool rateLimitHit = false;
-                 string rateLimitError = null;
+                if (repos.Count == 0)
+                {
+                    onComplete?.Invoke(allPackages, null);
+                    yield break;
+                }
 
-                 // Fetch each repo
-                 foreach (var repo in repos)
-                 {
-                     RoosterPlugin.Instance.StartCoroutine(FetchRepoReleases(repo, (pkgs, error) => {
-                         if (error != null && (error.Contains("403") || error.Contains("429")))
-                         {
-                             rateLimitHit = true;
-                             rateLimitError = "GitHub API Rate Limit Exceeded. Please wait 1 hour.";
-                         }
-                         
-                         if (pkgs != null) allPackages.AddRange(pkgs);
-                         completed++;
-                     }));
-                 }
-                 
-                 // Wait until all are done
-                 yield return new WaitUntil(() => completed >= repos.Count);
-                 
-                 if (rateLimitHit)
-                 {
-                     onComplete?.Invoke(allPackages, rateLimitError);
-                 }
-                 else
-                 {
-                     // Sort alphabetically by name to ensure deterministic UI order
-                     allPackages.Sort((a, b) => string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase));
-                     onComplete?.Invoke(allPackages, null);
-                 }
-             }
+                bool rateLimitHit = false;
+                string rateLimitError = null;
+
+                foreach (var repo in repos)
+                {
+                    RoosterPlugin.Instance.StartCoroutine(FetchRepoReleases(repo, (pkgs, error) =>
+                    {
+                        if (error != null && (error.Contains("403") || error.Contains("429")))
+                        {
+                            rateLimitHit = true;
+                            rateLimitError = "GitHub API Rate Limit Exceeded. Please wait 1 hour.";
+                        }
+
+                        if (pkgs != null) allPackages.AddRange(pkgs);
+                        completed++;
+                    }));
+                }
+
+                yield return new WaitUntil(() => completed >= repos.Count);
+
+                if (rateLimitHit)
+                {
+                    onComplete?.Invoke(allPackages, rateLimitError);
+                }
+                else
+                {
+                    allPackages.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+                    onComplete?.Invoke(allPackages, null);
+                }
+            }
         }
-        
+
         private static string _cachedToken = null;
         private static bool _hasCheckedToken = false;
 
@@ -201,15 +219,14 @@ namespace Rooster.Services
             try
             {
                 string rawPath = RoosterConfig.GitHubTokenPath.Value;
-                string path = System.IO.Path.IsPathRooted(rawPath) 
-                    ? rawPath 
+                string path = System.IO.Path.IsPathRooted(rawPath)
+                    ? rawPath
                     : System.IO.Path.Combine(RoosterConfig.RoosterConfigPath, rawPath);
                 if (System.IO.File.Exists(path))
                 {
                     string token = System.IO.File.ReadAllText(path).Trim();
                     if (!string.IsNullOrEmpty(token))
                     {
-                        RoosterPlugin.LogInfo("Loaded GitHub Token from config.");
                         _cachedToken = token;
                     }
                 }
@@ -225,7 +242,7 @@ namespace Rooster.Services
         {
             // GitHub API: Use /releases to get ALL releases (including pre-releases), not just /releases/latest
             string apiUrl = $"https://api.github.com/repos/{repoInfo.Repo}/releases";
-            
+
             using (UnityWebRequest www = UnityWebRequest.Get(apiUrl))
             {
                 www.SetRequestHeader("User-Agent", "RoosterModManager");
@@ -234,7 +251,7 @@ namespace Rooster.Services
                 {
                     www.SetRequestHeader("Authorization", $"Bearer {token}");
                 }
-                
+
                 yield return www.SendWebRequest();
 
                 if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
@@ -247,7 +264,6 @@ namespace Rooster.Services
                         yield break;
                     }
 
-                    // Fallback to Contents API
                     RoosterPlugin.LogInfo($"[Releases] Failed for {repoInfo.Repo} (Error: {www.responseCode}), trying contents...");
                     RoosterPlugin.Instance.StartCoroutine(FetchRepoContents(repoInfo, onRepoComplete));
                 }
@@ -256,9 +272,8 @@ namespace Rooster.Services
                     try
                     {
                         string json = www.downloadHandler.text;
-                        // Parse LIST of releases, take the first one
                         var packs = ParseReleasesListJson(json, repoInfo);
-                        
+
                         if (packs.Count == 0)
                         {
                             RoosterPlugin.LogInfo($"[Releases] No valid assets found in releases for {repoInfo.Repo}, trying contents...");
@@ -280,45 +295,43 @@ namespace Rooster.Services
 
         private static IEnumerator FetchRepoContents(CuratedRepo repoInfo, Action<List<ThunderstorePackage>, string> onRepoComplete)
         {
-            RoosterPlugin.LogInfo($"[RecursiveFetch] Starting search for {repoInfo.Repo}...");
             string commitUrl = $"https://api.github.com/repos/{repoInfo.Repo}/commits/HEAD";
             string headSha = null;
 
             using (UnityWebRequest www = UnityWebRequest.Get(commitUrl))
             {
-                 www.SetRequestHeader("User-Agent", "RoosterModManager");
-                 string token = GetToken();
-                 if (!string.IsNullOrEmpty(token)) www.SetRequestHeader("Authorization", $"Bearer {token}");
-                 
-                 yield return www.SendWebRequest();
-                 
-                 if (www.result != UnityWebRequest.Result.Success)
-                 {
-                     string err = $"[RecursiveFetch] Failed to get HEAD for {repoInfo.Repo}: {www.error} ({www.responseCode})";
-                     RoosterPlugin.LogError(err);
-                     onRepoComplete?.Invoke(null, err);
-                     yield break;
-                 }
-                 
-                 headSha = ThunderstoreApi.ExtractJsonValue(www.downloadHandler.text, "sha");
-                 RoosterPlugin.LogInfo($"[RecursiveFetch] HEAD SHA for {repoInfo.Repo}: {headSha}");
+                www.SetRequestHeader("User-Agent", "RoosterModManager");
+                string token = GetToken();
+                if (!string.IsNullOrEmpty(token)) www.SetRequestHeader("Authorization", $"Bearer {token}");
+
+                yield return www.SendWebRequest();
+
+                if (www.result != UnityWebRequest.Result.Success)
+                {
+                    string err = $"[RecursiveFetch] Failed to get HEAD for {repoInfo.Repo}: {www.error} ({www.responseCode})";
+                    RoosterPlugin.LogError(err);
+                    onRepoComplete?.Invoke(null, err);
+                    yield break;
+                }
+
+                var node = JSON.Parse(www.downloadHandler.text);
+                headSha = node["sha"];
             }
-            
+
             if (string.IsNullOrEmpty(headSha))
             {
                 onRepoComplete?.Invoke(null, "Failed to parse HEAD SHA");
                 yield break;
             }
 
-            // 2. Get Tree
             string treeUrl = $"https://api.github.com/repos/{repoInfo.Repo}/git/trees/{headSha}?recursive=1";
-            
+
             using (UnityWebRequest www = UnityWebRequest.Get(treeUrl))
             {
                 www.SetRequestHeader("User-Agent", "RoosterModManager");
                 string token = GetToken();
                 if (!string.IsNullOrEmpty(token)) www.SetRequestHeader("Authorization", $"Bearer {token}");
-                
+
                 yield return www.SendWebRequest();
 
                 if (www.result != UnityWebRequest.Result.Success)
@@ -328,12 +341,11 @@ namespace Rooster.Services
                     onRepoComplete?.Invoke(null, err);
                     yield break;
                 }
-                
+
                 try
                 {
                     string json = www.downloadHandler.text;
                     var packs = ParseTreeJson(json, repoInfo, headSha);
-                    RoosterPlugin.LogInfo($"[RecursiveFetch] Found {packs.Count} valid mods in {repoInfo.Repo} tree.");
                     onRepoComplete?.Invoke(packs, null);
                 }
                 catch (Exception ex)
@@ -347,83 +359,48 @@ namespace Rooster.Services
         private static List<ThunderstorePackage> ParseReleasesListJson(string json, CuratedRepo repoInfo)
         {
             var packages = new List<ThunderstorePackage>();
-            // Expecting Array [ { ... }, { ... } ]
-            
-            int arrayStart = json.IndexOf('[');
-            if (arrayStart < 0) return packages; 
-            
-            int arrayEnd = FindMatchingClosingChar(json, arrayStart, '[', ']');
-            if (arrayEnd < 0) return packages;
-            
-            string arrayContent = json.Substring(arrayStart, arrayEnd - arrayStart + 1);
-            int walker = 0;
-            
-            while (walker < arrayContent.Length)
-            {
-                 int objStart = arrayContent.IndexOf('{', walker);
-                 if (objStart < 0) break;
-                 
-                 int objEnd = FindMatchingClosingChar(arrayContent, objStart, '{', '}');
-                 if (objEnd < 0) break;
-                 
-                 string releaseJson = arrayContent.Substring(objStart, objEnd - objStart + 1);
-                 
-                 bool isDraft = ThunderstoreApi.ExtractJsonBool(releaseJson, "draft");
-                 string tagName = ThunderstoreApi.ExtractJsonValue(releaseJson, "tag_name");
+            var root = JSON.Parse(json);
 
-                 // Skip drafts and untagged releases
-                 // Note: GitHub API authenticated requests return drafts. We only want public releases.
-                 if (!isDraft && !string.IsNullOrEmpty(tagName) && !tagName.StartsWith("untagged", StringComparison.OrdinalIgnoreCase))
-                 {
-                     var result = ParseSingleReleaseJson(releaseJson, repoInfo);
-                     if (result.Count > 0) 
-                     {
-                         return result;
-                     }
-                 }
-                 
-                 walker = objEnd + 1;
+            if (root == null || !root.IsArray) return packages;
+
+            foreach (JSONNode release in root.AsArray)
+            {
+                bool isDraft = release["draft"].AsBool;
+                string tagName = release["tag_name"];
+
+                if (!isDraft && !string.IsNullOrEmpty(tagName) && !tagName.StartsWith("untagged", StringComparison.OrdinalIgnoreCase))
+                {
+                    var result = ParseSingleReleaseNode(release, repoInfo);
+                    if (result.Count > 0)
+                    {
+                        return result;
+                    }
+                }
             }
 
             return packages;
         }
 
-        private static List<ThunderstorePackage> ParseSingleReleaseJson(string json, CuratedRepo repoInfo)
+        private static List<ThunderstorePackage> ParseSingleReleaseNode(JSONNode release, CuratedRepo repoInfo)
         {
             var packages = new List<ThunderstorePackage>();
-            
-            string tagName = ThunderstoreApi.ExtractJsonValue(json, "tag_name");
-            string body = ThunderstoreApi.ExtractJsonValue(json, "body");
+
+            string tagName = release["tag_name"];
+            string body = release["body"];
             string author = repoInfo.Repo.Split('/')[0];
-            
-            int assetsIdx = json.IndexOf("\"assets\":");
-            if (assetsIdx >= 0)
+
+            var assets = release["assets"].AsArray;
+            if (assets != null)
             {
-                int openBracket = json.IndexOf('[', assetsIdx);
-                int closeBracket = FindMatchingClosingChar(json, openBracket, '[', ']');
-                
-                if (openBracket >= 0 && closeBracket > openBracket)
+                foreach (JSONNode asset in assets)
                 {
-                    string assetsJson = json.Substring(openBracket, closeBracket - openBracket + 1);
-                    int walker = 0;
-                    while (walker < assetsJson.Length)
-                    {
-                         int aObjStart = assetsJson.IndexOf('{', walker);
-                         if (aObjStart < 0) break;
-                         int aObjEnd = FindMatchingClosingChar(assetsJson, aObjStart, '{', '}');
-                         if (aObjEnd < 0) break;
-                         
-                         string assetObj = assetsJson.Substring(aObjStart, aObjEnd - aObjStart + 1);
-                         string name = ThunderstoreApi.ExtractJsonValue(assetObj, "name");
-                         string downloadUrl = ThunderstoreApi.ExtractJsonValue(assetObj, "browser_download_url");
-                         
-                         ProcessAsset(packages, name, downloadUrl, author, repoInfo.Description ?? body, tagName);
-                         
-                         walker = aObjEnd + 1;
-                    }
+                    string name = asset["name"];
+                    string downloadUrl = asset["browser_download_url"];
+
+                    ProcessAsset(packages, name, downloadUrl, author, repoInfo.Description ?? body, tagName);
                 }
             }
-            
+
             if (packages.Count == 0 && !string.IsNullOrEmpty(body))
             {
                 int linkIndex = 0;
@@ -434,12 +411,11 @@ namespace Rooster.Services
                     {
                         int endIndex = zipIndex + 4; // include .zip
                         string url = body.Substring(linkIndex, endIndex - linkIndex);
-                        
+
                         if (!url.Contains(" ") && !url.Contains("\n") && !url.Contains("\""))
                         {
-                             string filename = System.IO.Path.GetFileName(url);
-                             RoosterPlugin.LogInfo($"[Releases] Found embedded link in body: {url}");
-                             ProcessAsset(packages, filename, url, author, repoInfo.Description ?? body, tagName);
+                            string filename = System.IO.Path.GetFileName(url);
+                            ProcessAsset(packages, filename, url, author, repoInfo.Description ?? body, tagName);
                         }
                     }
                     linkIndex++;
@@ -451,102 +427,80 @@ namespace Rooster.Services
 
         private static List<ThunderstorePackage> ParseTreeJson(string json, CuratedRepo repoInfo, string sha)
         {
-             var packages = new List<ThunderstorePackage>();
-             string author = repoInfo.Repo.Split('/')[0];
-             
-             int treeKeyIndex = json.IndexOf("\"tree\":");
-             if (treeKeyIndex < 0) 
-             {
-                 RoosterPlugin.LogError($"[RecursiveFetch] 'tree' key not found in JSON for {repoInfo.Repo}");
-                 return packages;
-             }
-             
-             int arrayStart = json.IndexOf('[', treeKeyIndex);
-             if (arrayStart < 0) return packages;
-             
-             int arrayEnd = FindMatchingClosingChar(json, arrayStart, '[', ']');
-             if (arrayEnd < 0) return packages;
+            var packages = new List<ThunderstorePackage>();
+            string author = repoInfo.Repo.Split('/')[0];
 
-             string treeArrayJson = json.Substring(arrayStart, arrayEnd - arrayStart + 1);
-             
-             RoosterPlugin.LogInfo($"[RecursiveFetch] Parsing tree array (Length: {treeArrayJson.Length}) for {repoInfo.Repo}");
+            var root = JSON.Parse(json);
+            var tree = root["tree"].AsArray;
 
-             int walker = 0;
-             while (walker < treeArrayJson.Length)
-             {
-                 int objStart = treeArrayJson.IndexOf('{', walker);
-                 if (objStart < 0) break;
-                 
-                 int objEnd = FindMatchingClosingChar(treeArrayJson, objStart, '{', '}');
-                 if (objEnd < 0) break;
-                 
-                 string itemJson = treeArrayJson.Substring(objStart, objEnd - objStart + 1);
-                 
-                 string path = ThunderstoreApi.ExtractJsonValue(itemJson, "path");
-                 string type = ThunderstoreApi.ExtractJsonValue(itemJson, "type");
-                 
+            if (tree == null)
+            {
+                RoosterPlugin.LogError($"[RecursiveFetch] 'tree' key not found or not array in JSON for {repoInfo.Repo}");
+                return packages;
+            }
 
-                 if (type == "blob" && !string.IsNullOrEmpty(path))
-                 {
-                     string filename = System.IO.Path.GetFileName(path);
-                     
-                     bool isZip = filename.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
-                     bool isDll = filename.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
-                     
-                     if (isZip || isDll)
-                     {
-                         if (filename.StartsWith("source code", StringComparison.OrdinalIgnoreCase) || 
-                             filename.StartsWith("src", StringComparison.OrdinalIgnoreCase))
-                         {
-                             RoosterPlugin.LogInfo($"[RecursiveFetch] Ignored source artifact: {path}");
-                         }
-                         else
-                         {
+            foreach (JSONNode item in tree)
+            {
+                string path = item["path"];
+                string type = item["type"];
+
+                if (type == "blob" && !string.IsNullOrEmpty(path))
+                {
+                    string filename = System.IO.Path.GetFileName(path);
+
+                    bool isZip = filename.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+                    bool isDll = filename.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
+
+                    if (isZip || isDll)
+                    {
+                        if (filename.StartsWith("source code", StringComparison.OrdinalIgnoreCase) ||
+                            filename.StartsWith("src", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // RoosterPlugin.LogInfo($"[RecursiveFetch] Ignored source artifact: {path}");
+                        }
+                        else
+                        {
                             string downloadUrl = $"https://raw.githubusercontent.com/{repoInfo.Repo}/{sha}/{path}";
-                            
-                            RoosterPlugin.LogInfo($"[RecursiveFetch] ACCEPTED: {path}");
+
                             ProcessAsset(packages, filename, downloadUrl, author, repoInfo.Description, "1.0.0");
-                         }
-                     }
-                 }
-                 
-                 walker = objEnd + 1;
-             }
-             
-             return packages;
+                        }
+                    }
+                }
+            }
+
+            return packages;
         }
 
         private static void ProcessAsset(List<ThunderstorePackage> packages, string name, string downloadUrl, string author, string desc, string version)
         {
-             if (string.IsNullOrEmpty(name)) return;
-             
-             bool isZip = name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
-             bool isDll = name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
-             
-             if ((isZip || isDll) && 
-                 !name.StartsWith("source code", StringComparison.OrdinalIgnoreCase) && 
-                 !name.StartsWith("src", StringComparison.OrdinalIgnoreCase))
-             {
-                 string modName = name.Replace(".zip", "")
-                                      .Replace(".dll", "");
-                 
-                 modName = StripVersionFromName(modName);
-                 
-                 packages.Add(new ThunderstorePackage
-                 {
-                     name = modName,
-                     full_name = $"{author}-{modName}",
-                     description = desc ?? "No description provided.",
-                     website_url = downloadUrl,
-                     latest = new ThunderstoreVersion
-                     {
-                         version_number = version != null ? version.TrimStart('v') : "1.0.0",
-                         download_url = downloadUrl
-                     },
-                     categories = new List<string> { "GitHub" }
-                 });
-                 RoosterPlugin.LogInfo($"[DEBUG] Discovered GitHub Asset: {modName} -> {packages[packages.Count-1].full_name}");
-             }
+            if (string.IsNullOrEmpty(name)) return;
+
+            bool isZip = name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+            bool isDll = name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase);
+
+            if ((isZip || isDll) &&
+                !name.StartsWith("source code", StringComparison.OrdinalIgnoreCase) &&
+                !name.StartsWith("src", StringComparison.OrdinalIgnoreCase))
+            {
+                string modName = name.Replace(".zip", "")
+                                     .Replace(".dll", "");
+
+                modName = StripVersionFromName(modName);
+
+                packages.Add(new ThunderstorePackage
+                {
+                    Name = modName,
+                    FullName = $"{author}-{modName}",
+                    Description = desc ?? "No description provided.",
+                    WebsiteUrl = downloadUrl,
+                    Latest = new ThunderstoreVersion
+                    {
+                        VersionNumber = version != null ? version.TrimStart('v') : "1.0.0",
+                        DownloadUrl = downloadUrl
+                    },
+                    Categories = new List<string> { "GitHub" }
+                });
+            }
         }
 
         private static string StripVersionFromName(string name)
@@ -555,7 +509,6 @@ namespace Rooster.Services
             if (lastHyphen > 0 && lastHyphen < name.Length - 1)
             {
                 string potentialVersion = name.Substring(lastHyphen + 1);
-                // Check if it consists only of digits, dots, v
                 bool isVersion = true;
                 bool hasDigit = false;
                 foreach (char c in potentialVersion)
@@ -567,7 +520,7 @@ namespace Rooster.Services
                         break;
                     }
                 }
-                
+
                 if (isVersion && hasDigit)
                 {
                     return name.Substring(0, lastHyphen);
@@ -584,63 +537,36 @@ namespace Rooster.Services
 
         private static List<CuratedRepo> ParseRepoList(string json)
         {
-            RoosterPlugin.LogInfo($"Parsing Repo List (Length: {json?.Length ?? 0})");
             var list = new List<CuratedRepo>();
             if (string.IsNullOrEmpty(json)) return list;
 
-            int index = 0;
-            while(index < json.Length)
-            {
-                int objStart = json.IndexOf('{', index);
-                if (objStart < 0) break;
-                int objEnd = FindMatchingClosingChar(json, objStart, '{', '}');
-                if (objEnd < 0) 
-                {
-                    RoosterPlugin.LogError($"Failed to find closing brace for object starting at {objStart}");
-                    break;
-                }
-                
-                string itemJson = json.Substring(objStart, objEnd - objStart + 1);
-                string repo = ThunderstoreApi.ExtractJsonValue(itemJson, "repo");
-                string desc = ThunderstoreApi.ExtractJsonValue(itemJson, "description");
-                
-                if (!string.IsNullOrEmpty(repo))
-                {
-                    list.Add(new CuratedRepo { Repo = repo, Description = desc });
-                    RoosterPlugin.LogInfo($"Found Repo: {repo}");
-                }
-                else
-                {
-                    RoosterPlugin.LogWarning($"Found object but no repo field: {itemJson}");
-                }
-                index = objEnd + 1;
-            }
-            RoosterPlugin.LogInfo($"Parsed {list.Count} curated repos.");
-            return list;
-        }
+            var root = JSON.Parse(json);
+            if (root == null) return list;
 
-        private static int FindMatchingClosingChar(string json, int openIndex, char openChar, char closeChar)
-        {
-            int depth = 0;
-            bool inString = false;
-            for (int i = openIndex; i < json.Length; i++)
+            if (root.IsArray)
             {
-                char c = json[i];
-                if (c == '"' && (i == 0 || json[i-1] != '\\'))
+                foreach (JSONNode item in root.AsArray)
                 {
-                    inString = !inString;
-                }
-                else if (!inString)
-                {
-                    if (c == openChar) depth++;
-                    else if (c == closeChar)
+                    string repo = item["repo"];
+                    string desc = item["description"];
+
+                    if (!string.IsNullOrEmpty(repo))
                     {
-                        depth--;
-                        if (depth == 0) return i;
+                        list.Add(new CuratedRepo { Repo = repo, Description = desc });
                     }
                 }
             }
-            return -1;
+            else if (root.IsObject)
+            {
+                string repo = root["repo"];
+                string desc = root["description"];
+                if (!string.IsNullOrEmpty(repo))
+                {
+                    list.Add(new CuratedRepo { Repo = repo, Description = desc });
+                }
+            }
+
+            return list;
         }
     }
 }

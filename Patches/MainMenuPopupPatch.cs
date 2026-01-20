@@ -43,7 +43,7 @@ namespace Rooster.Patches
                 ModMenuUI.ShowModMenu();
                 return false;
             }
-            
+
             if (CurrentMenuState == MenuState.ModDetails)
             {
                 ModDetailsUI.CleanupCustomUI();
@@ -55,7 +55,7 @@ namespace Rooster.Patches
             if (CurrentMenuState == MenuState.ModBrowser)
             {
                 ModBrowserUI.DestroyUI(null); // Just destroy content, keep modal for menu
-                ModDetailsUI.CleanupCustomUI(); 
+                ModDetailsUI.CleanupCustomUI();
                 CurrentMenuState = MenuState.ModMenu;
                 ModMenuUI.ShowModMenu();
                 return false;

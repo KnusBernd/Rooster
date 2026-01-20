@@ -67,7 +67,8 @@ namespace Rooster.Patches
                 if (tabletButton != null)
                 {
                     tabletButton.OnClick = new TabletButtonEvent();
-                    tabletButton.OnClick.AddListener((controller) => {
+                    tabletButton.OnClick.AddListener((controller) =>
+                    {
                         ModMenuUI.ShowModMenu();
                     });
                 }

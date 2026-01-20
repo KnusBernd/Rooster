@@ -27,7 +27,8 @@ namespace Rooster
         {
             _config = config;
 
-            // Ensure Rooster config directory exists
+            _config = config;
+
             if (!System.IO.Directory.Exists(RoosterConfigPath))
             {
                 System.IO.Directory.CreateDirectory(RoosterConfigPath);
@@ -39,7 +40,7 @@ namespace Rooster
                 true,
                 "If true, a beta warning popup will be shown at the main menu."
             );
-            
+
             GitHubCuratedUrl = config.Bind(
                 "GitHub",
                 "CuratedModListUrl",

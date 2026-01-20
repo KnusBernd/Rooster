@@ -26,7 +26,7 @@ namespace Rooster.UI
         {
             if (_viewportObj != null) _viewportObj.SetActive(visible);
             if (_scrollbarObj != null) _scrollbarObj.SetActive(visible);
-            
+
             foreach (var btn in _modButtons)
             {
                 if (btn != null) btn.SetActive(visible);
@@ -49,10 +49,11 @@ namespace Rooster.UI
             }
 
             var modal = Tablet.clickEventReceiver.modalOverlay;
-            
+
             _buttonTemplate = modal.okButton;
 
-            UIHelpers.SetupModal(modal, new Vector2(1000, 900), $"Installed Mods ({Chainloader.PluginInfos.Count})", () => {
+            UIHelpers.SetupModal(modal, new Vector2(1000, 900), $"Installed Mods ({Chainloader.PluginInfos.Count})", () =>
+            {
                 modal.Close();
                 _cleanupCoroutine = RoosterPlugin.Instance.StartCoroutine(CleanupCoroutine(modal));
             });
@@ -72,7 +73,7 @@ namespace Rooster.UI
             DestroyUI(modal);
 
             var container = modal.simpleMessageContainer;
-            if (container == null) 
+            if (container == null)
             {
                 RoosterPlugin.LogError("ApplyStyling: Container is null");
                 return;
@@ -82,8 +83,8 @@ namespace Rooster.UI
             UIHelpers.CleanContainer(container.gameObject, textObj);
 
             // Use unified ScrollLayout
-            var scrollLayout = UIHelpers.CreateScrollLayout(container.gameObject, "ModMenu", 80, 100, 0, 40, 10);
-            
+            var scrollLayout = UIHelpers.CreateScrollLayout(container.gameObject, "ModMenu", 80, 125, 0, 40, 10);
+
             _viewportObj = scrollLayout.Viewport.gameObject;
             _scrollbarObj = scrollLayout.ScrollbarObj;
             var contentRect = scrollLayout.Content;
@@ -101,38 +102,58 @@ namespace Rooster.UI
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
 
-            // Browse Button
             CreateBrowseButton(container.GetComponent<RectTransform>());
 
-            int count = 0;
+            var displayList = new List<ModDisplayData>();
+
             foreach (var plugin in Chainloader.PluginInfos.Values)
             {
-                CreateModButton(contentRect, plugin);
+                displayList.Add(new ModDisplayData
+                {
+                    Name = plugin.Metadata.Name,
+                    Version = plugin.Metadata.Version.ToString(),
+                    Guid = plugin.Metadata.GUID,
+                    Plugin = plugin
+                });
+            }
+
+            displayList.Add(new ModDisplayData
+            {
+                Name = "BepInEx",
+                Version = typeof(Chainloader).Assembly.GetName().Version.ToString(),
+                Guid = "bepinex",
+                Plugin = null
+            });
+
+            displayList.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+
+            int count = 0;
+            foreach (var data in displayList)
+            {
+                CreateModButton(contentRect, data);
                 count++;
             }
-            RoosterPlugin.LogInfo($"ApplyStyling: Created {count} mod buttons");
+            RoosterPlugin.LogInfo($"ApplyStyling: Created {count} mod buttons (including BepInEx)");
 
             UnityEngine.Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
-            
-             // Explicitly reset scroll to top
+
             if (scrollLayout.ScrollRect != null) scrollLayout.ScrollRect.verticalNormalizedPosition = 1f;
         }
 
         private static void CreateBrowseButton(RectTransform parent)
         {
             if (_buttonTemplate == null) return;
-            
-            // Clone the 'on' button template for a smaller style
+
             var btnObj = UnityEngine.Object.Instantiate(_buttonTemplate.gameObject, parent);
             btnObj.name = "BrowseModsButton";
-            
+
             var label = btnObj.GetComponentInChildren<TabletTextLabel>();
-             if (label != null)
+            if (label != null)
             {
                 label.text = "Browse Online";
-                label.transform.localScale = new Vector3(0.6f, 0.6f, 1f); 
-                
+                label.transform.localScale = new Vector3(0.6f, 0.6f, 1f);
+
                 var txt = label.GetComponent<Text>();
                 if (txt != null)
                 {
@@ -145,44 +166,48 @@ namespace Rooster.UI
             var tabletBtn = btnObj.GetComponent<TabletButton>();
             if (tabletBtn != null)
             {
-                 if (tabletBtn.colorScheme == null) tabletBtn.colorScheme = _buttonTemplate.colorScheme;
-                 
-                 tabletBtn.OnClick = new TabletButtonEvent();
-                 tabletBtn.OnClick.AddListener((cursor) => {
-                     DestroyUI(Tablet.clickEventReceiver.modalOverlay);
-                     ModBrowserUI.ShowModBrowser();
-                 });
-                 tabletBtn.SetDisabled(false);
-                 tabletBtn.SetInteractable(true);
-                 
-                 // Rounded style
-                 tabletBtn.buttonType = TabletButton.ButtonType.Simple; 
-                 tabletBtn.ResetStyles();
-                 
-                 // Create custom color scheme to handle hover states natively
-                 UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Success);
+                if (tabletBtn.colorScheme == null) tabletBtn.colorScheme = _buttonTemplate.colorScheme;
+
+                tabletBtn.OnClick = new TabletButtonEvent();
+                tabletBtn.OnClick.AddListener((cursor) =>
+                {
+                    DestroyUI(Tablet.clickEventReceiver.modalOverlay);
+                    ModBrowserUI.ShowModBrowser();
+                });
+                tabletBtn.SetDisabled(false);
+                tabletBtn.SetInteractable(true);
+
+                tabletBtn.buttonType = TabletButton.ButtonType.Simple;
+                tabletBtn.ResetStyles();
+
+                UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Success);
             }
-            
-            // Positioning at Bottom Center
+
             var rect = btnObj.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0.5f, 0);
             rect.anchorMax = new Vector2(0.5f, 0);
             rect.pivot = new Vector2(0.5f, 0);
-            
-            rect.anchoredPosition = new Vector2(0, 10); 
+
+            rect.anchoredPosition = new Vector2(0, 10);
             rect.sizeDelta = new Vector2(500, 80); // Even wider
 
-            // Remove LayoutElement
             var le = btnObj.GetComponent<LayoutElement>();
             if (le != null) UnityEngine.Object.Destroy(le);
 
-            // Ensure z order
             btnObj.transform.SetAsLastSibling();
             btnObj.SetActive(true);
             _modButtons.Add(btnObj);
         }
 
-        private static void CreateModButton(RectTransform parent, PluginInfo plugin)
+        private struct ModDisplayData
+        {
+            public string Name;
+            public string Version;
+            public string Guid;
+            public PluginInfo Plugin;
+        }
+
+        private static void CreateModButton(RectTransform parent, ModDisplayData data)
         {
             if (_buttonTemplate == null)
             {
@@ -190,8 +215,9 @@ namespace Rooster.UI
                 return;
             }
 
+            string guid = data.Guid;
             var btnObj = UnityEngine.Object.Instantiate(_buttonTemplate.gameObject, parent);
-            btnObj.name = $"ModButton_{plugin.Metadata.GUID}";
+            btnObj.name = $"ModButton_{guid}";
             btnObj.transform.localScale = Vector3.one;
 
             var btnRect = btnObj.GetComponent<RectTransform>();
@@ -204,28 +230,24 @@ namespace Rooster.UI
             var label = btnObj.GetComponentInChildren<TabletTextLabel>();
             if (label != null)
             {
-                string displayName = plugin.Metadata.Name;
-                string guid = plugin.Metadata.GUID;
+                string displayName = data.Name;
                 string prefix = "";
 
-                // Prioritized Status Indicators
                 if (UpdateChecker.PendingUninstalls.Contains(guid))
                 {
-                    // Red Minus: Pending Uninstall
-                     prefix = "<color=#FF0000>-</color> ";
+                    prefix = "<color=#FF0000>-</color> ";
                 }
                 else if (UpdateChecker.PendingInstalls.Contains(guid))
                 {
-                     // Yellow Plus: Pending Install
-                     prefix = "<color=#FFFF00>+</color> ";
+                    prefix = "<color=#FFFF00>+</color> ";
                 }
-                else 
+                else
                 {
-                    // Check for updates
                     bool hasUpdate = false;
-                    foreach(var update in UpdateChecker.PendingUpdates)
+                    foreach (var update in UpdateChecker.PendingUpdates)
                     {
-                        if (update.PluginInfo.Metadata.GUID.Equals(guid, StringComparison.OrdinalIgnoreCase))
+                        string updateGuid = update.PluginInfo != null ? update.PluginInfo.Metadata.GUID : "bepinex";
+                        if (updateGuid.Equals(guid, StringComparison.OrdinalIgnoreCase))
                         {
                             hasUpdate = true;
                             break;
@@ -234,20 +256,18 @@ namespace Rooster.UI
 
                     if (hasUpdate)
                     {
-                        // Cyan Up Arrow: Update Available
                         prefix = "<color=#00FFFF>↑</color> ";
                     }
                     else if (UpdateChecker.MatchedPackages.ContainsKey(guid))
                     {
-                        // Green Asterisk: Matched
                         prefix = "<color=#00FF00>*</color> ";
                     }
                 }
-                
+
                 var uiText = label.GetComponent<Text>();
                 if (uiText != null) uiText.supportRichText = true;
 
-                label.text = $"{prefix}{displayName} v{plugin.Metadata.Version}";
+                label.text = $"{prefix}{displayName} v{data.Version}";
                 label.labelType = TabletTextLabel.LabelType.SmallText;
             }
 
@@ -260,21 +280,22 @@ namespace Rooster.UI
                 }
 
                 tabletBtn.OnClick = new TabletButtonEvent();
-                tabletBtn.OnClick.AddListener((cursor) => {
+                tabletBtn.OnClick.AddListener((cursor) =>
+                {
                     try
                     {
-                        var pkg = Services.ModMatcher.FindPackage(plugin, UpdateChecker.CachedPackages);
-                        string tsFullName = pkg?.full_name;
-                        ModSettingsUI.ShowModSettings(plugin, tsFullName);
+                        var pkg = UpdateChecker.MatchedPackages.ContainsKey(guid) ? UpdateChecker.MatchedPackages[guid] : null;
+                        string tsFullName = pkg?.FullName;
+                        ModSettingsUI.ShowModSettings(data.Plugin, guid, tsFullName);
                     }
                     catch (Exception ex)
                     {
-                        RoosterPlugin.LogError($"Failed to open settings for {plugin.Metadata.Name}: {ex}");
+                        RoosterPlugin.LogError($"Failed to open settings for {data.Name}: {ex}");
                     }
                 });
                 tabletBtn.SetDisabled(false);
                 tabletBtn.SetInteractable(true);
-                
+
                 if (tabletBtn.background != null)
                 {
                     tabletBtn.background.raycastTarget = true;
@@ -298,15 +319,15 @@ namespace Rooster.UI
         {
             if (_viewportObj != null)
             {
-                 UnityEngine.Object.DestroyImmediate(_viewportObj);
-                 _viewportObj = null;
+                UnityEngine.Object.DestroyImmediate(_viewportObj);
+                _viewportObj = null;
             }
             if (_scrollbarObj != null)
             {
                 UnityEngine.Object.DestroyImmediate(_scrollbarObj);
                 _scrollbarObj = null;
             }
-            
+
             foreach (var btn in _modButtons)
             {
                 if (btn != null) UnityEngine.Object.DestroyImmediate(btn);

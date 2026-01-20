@@ -13,20 +13,24 @@ namespace Rooster.Services
         /// <summary>Checks if a newer version is available for a plugin.</summary>
         public static ModUpdateInfo CheckForUpdate(PluginInfo plugin, ThunderstorePackage remotePkg)
         {
-            if (remotePkg?.latest == null) return null;
-             
-            string modName = plugin.Metadata.Name;
-            string currentVersion = plugin.Metadata.Version.ToString();
-            string latestVersion = remotePkg.latest.version_number;
+            if (plugin == null) return null;
+            return CheckForUpdate(plugin.Metadata.Name, plugin.Metadata.Version.ToString(), remotePkg, plugin);
+        }
+
+        /// <summary>Checks if a newer version is available for a manual version string.</summary>
+        public static ModUpdateInfo CheckForUpdate(string modName, string currentVersion, ThunderstorePackage remotePkg, PluginInfo plugin = null)
+        {
+            if (remotePkg?.Latest == null) return null;
+
+            string latestVersion = remotePkg.Latest.VersionNumber;
 
             if (IsNewer(currentVersion, latestVersion))
             {
-                return new ModUpdateInfo 
-                { 
-                    ModName = modName, 
-                    Version = latestVersion, 
-                    DownloadUrl = remotePkg.latest.download_url,
-
+                return new ModUpdateInfo
+                {
+                    ModName = modName,
+                    Version = latestVersion,
+                    DownloadUrl = remotePkg.Latest.DownloadUrl,
                     PluginInfo = plugin
                 };
             }
@@ -37,7 +41,7 @@ namespace Rooster.Services
         public static bool IsNewer(string current, string latest)
         {
             RoosterPlugin.LogInfo($"Comparing versions: Local='{current}' vs Remote='{latest}'");
-            
+
             try
             {
                 current = CleanVersionString(current);
@@ -51,11 +55,11 @@ namespace Rooster.Services
                 {
                     int cVal = i < vC.Length ? vC[i] : 0;
                     int lVal = i < vL.Length ? vL[i] : 0;
-                    
+
                     if (lVal > cVal) return true;
                     if (lVal < cVal) return false;
                 }
-                
+
                 return false;
             }
             catch (Exception ex)
