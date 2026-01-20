@@ -152,7 +152,7 @@ namespace Rooster.UI
                  rowLe.preferredHeight = 110; 
                  rowLe.minHeight = 90;
 
-                 var btnText = isPendingUninstall ? "Uninstall Pending" : "Uninstall Mod";
+                 var btnText = isPendingUninstall ? "Uninstall Pending (Restart required)" : "Uninstall Mod";
                  var uninstallBtn = UIHelpers.CreateButton(actionRow.transform, modal.okButton, btnText, 450, 80);
                  
                  if (isPendingUninstall)
@@ -175,13 +175,13 @@ namespace Rooster.UI
                                      UIHelpers.CleanContainer(modal.simpleMessageContainer.gameObject, textObj);
                                      
                                      string msg = deleteConfig 
-                                         ? "Uninstall staged; configuration deleted. Dll will be cleaned up with the next Restart." 
-                                         : "Uninstall staged. Dll will be cleaned up with the next Restart.";
+                                        ? "Uninstall staged; configuration deleted. Dll will be cleaned up with the next Restart." 
+                                        : "Uninstall staged. Dll will be cleaned up with the next Restart.";
 
-                                     modal.ShowSimpleMessage("Uninstall Successful", msg, () => {
-                                        CleanupCustomUI();
-                                        modal.Close();
-                                     });
+                                    UIHelpers.ShowRestartPrompt(modal, "Uninstall Successful", msg, () => {
+                                       CleanupCustomUI();
+                                       modal.Close();
+                                    });
                                  } else {
                                      var textObj = modal.simpleMessageText != null ? modal.simpleMessageText.gameObject : null;
                                      UIHelpers.CleanContainer(modal.simpleMessageContainer.gameObject, textObj);

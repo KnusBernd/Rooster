@@ -116,17 +116,23 @@ namespace Rooster.Services
 
                 float overlap = (float)shared / Math.Max(localTokens.Count, remoteTokens.Count);
                 
-                if (overlap >= 0.8f) // High overlap (e.g. UCHTeams vs TeamsUCH)
+                // Safety check: requires at least 2 tokens to match, or 1 token if total tokens are few
+                bool safeMatch = shared >= 2 || (shared == 1 && Math.Max(localTokens.Count, remoteTokens.Count) <= 2);
+
+                if (safeMatch)
                 {
-                    report.AddScore($"High Token Overlap ({overlap:P0})", 75);
-                }
-                else if (overlap >= 0.5f) // Moderate overlap
-                {
-                     // Requires at least 2 tokens to match to be safe?
-                     if (shared >= 2 || (shared == 1 && Math.Max(localTokens.Count, remoteTokens.Count) <= 2))
-                     {
+                    if (overlap >= 0.8f) // High overlap (e.g. UCHTeams vs TeamsUCH)
+                    {
+                        report.AddScore($"High Token Overlap ({overlap:P0})", 75);
+                    }
+                    else if (overlap >= 0.65f) // Good overlap (e.g. VirtualOutfitBooth vs VirtualBooth -> 0.67)
+                    {
+                        report.AddScore($"Good Token Overlap ({overlap:P0})", 65);
+                    }
+                    else if (overlap >= 0.5f) // Moderate overlap
+                    {
                         report.AddScore($"Moderate Token Overlap ({overlap:P0})", 55);
-                     }
+                    }
                 }
             }
 

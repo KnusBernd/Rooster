@@ -2,10 +2,6 @@ using System;
 
 namespace Rooster.Models
 {
-    /// <summary>
-    /// Represents a package returned from the Thunderstore API.
-    /// Lightweight DTO containing only necessary metadata.
-    /// </summary>
     [Serializable]
     public class ThunderstorePackage
     {
@@ -17,5 +13,6 @@ namespace Rooster.Models
         public ThunderstoreVersion latest;
         public ThunderstoreVersion oldest;
         public System.Collections.Generic.List<string> categories;
+        public System.Collections.Generic.List<string> files;
     }
 }

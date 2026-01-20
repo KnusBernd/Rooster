@@ -26,7 +26,7 @@ namespace Rooster
             
             CleanupOldFiles();
 
-            LogInfo("Rooster loaded.");
+            LogInfo($"Rooster loaded. [Build: {System.DateTime.Now}]");
         }
 
         private void Start()

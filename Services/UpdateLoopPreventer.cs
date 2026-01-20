@@ -4,6 +4,7 @@ using System.IO;
 using BepInEx;
 using Rooster.Models;
 using UnityEngine;
+using Rooster.Services; 
 
 namespace Rooster.Services
 {
@@ -28,6 +29,7 @@ namespace Rooster.Services
         {
             if (_data != null) return;
             Load();
+            RoosterPlugin.LogInfo($"[UpdateLoopPreventer] Loaded. Pending: {_data.PendingInstalls.Count}, Ignored: {_data.IgnoredVersions.Count}");
             CheckForFailedUpdates();
             SanitizeIgnoredVersions();
         }
@@ -61,24 +63,17 @@ namespace Rooster.Services
             }
         }
 
-        /// <summary>
-        /// Registers a pending update for a plugin. 
-        /// This version is expected to be present on the next game launch.
-        /// </summary>
         public static void RegisterPendingInstall(string guid, string version)
         {
             string entry = $"{guid}|{version}";
             if (!_data.PendingInstalls.Contains(entry))
             {
+                RoosterPlugin.LogInfo($"[UpdateLoopPreventer] Registering Pending Install: {entry}");
                 _data.PendingInstalls.Add(entry);
                 Save();
             }
         }
 
-        /// <summary>
-        /// Verifies that all pending installs from the previous session were successful.
-        /// If a plugin is still on the old version, the target version is marked as "Ignored".
-        /// </summary>
         private static void CheckForFailedUpdates()
         {
             if (_data.PendingInstalls.Count == 0) return;
@@ -102,7 +97,6 @@ namespace Rooster.Services
                 }
                 else
                 {
-                    // Heuristic: Check if the plugin exists under a different GUID but matches the name
                     var heuristicMatch = FindHeuristicMatch(guid, plugins.Values);
                     
                     if (heuristicMatch != null)
@@ -119,17 +113,17 @@ namespace Rooster.Services
 
             foreach (var ig in newIgnored)
             {
-                if (!_data.IgnoredVersions.Contains(ig)) _data.IgnoredVersions.Add(ig);
+                if (!_data.IgnoredVersions.Contains(ig)) 
+                {
+                    RoosterPlugin.LogInfo($"[UpdateLoopPreventer] Ignoring version: {ig}");
+                    _data.IgnoredVersions.Add(ig);
+                }
             }
 
             _data.PendingInstalls.Clear();
             Save();
         }
 
-        /// <summary>
-        /// Re-evaluates ignored versions. If a previously failed update is now installed correctly,
-        /// it removes the ignore flag to allow future updates.
-        /// </summary>
         private static void SanitizeIgnoredVersions()
         {
             if (_data.IgnoredVersions.Count == 0) return;
@@ -178,10 +172,6 @@ namespace Rooster.Services
             }
         }
 
-        /// <summary>
-        /// Attempts to find a plugin that matches the given GUID based on acronyms or name similarity.
-        /// Useful when a Mod's GUID changes but the name remains similar.
-        /// </summary>
         private static PluginInfo FindHeuristicMatch(string shortGuid, ICollection<PluginInfo> plugins)
         {
             foreach (var plugin in plugins)
@@ -199,21 +189,15 @@ namespace Rooster.Services
             return null;
         }
 
-        /// <summary>
-        /// Checks if the input string is a valid acronym for the full name.
-        /// (e.g., "RPP" matches "RemovePlayerPlacements")
-        /// </summary>
         private static bool IsAcronymMatch(string acronym, string fullName)
         {
             if (string.IsNullOrEmpty(acronym) || string.IsNullOrEmpty(fullName)) return false;
             if (acronym.Length >= fullName.Length) return false;
 
-            // Strategy 1: PascalCase Capitals
             string caps = "";
             foreach (char c in fullName) if (char.IsUpper(c)) caps += c;
             if (caps.Equals(acronym, StringComparison.OrdinalIgnoreCase)) return true;
 
-            // Strategy 2: First letter of words
             string[] words = fullName.Split(new char[] { ' ', '-', '_', '.' }, StringSplitOptions.RemoveEmptyEntries);
             string initials = "";
             foreach (var word in words) if (word.Length > 0) initials += word[0];
@@ -223,7 +207,49 @@ namespace Rooster.Services
 
         public static bool IsVersionIgnored(string guid, string version)
         {
-            return _data.IgnoredVersions.Contains($"{guid}|{version}");
+            if (string.IsNullOrEmpty(version)) return false;
+
+            foreach (var entry in _data.IgnoredVersions)
+            {
+                string[] parts = entry.Split('|');
+                if (parts.Length != 2) continue;
+
+                string ignoredGuid = parts[0];
+                string ignoredVer = parts[1];
+
+                if (ignoredGuid.Equals(guid, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (ignoredVer.Equals(version, StringComparison.OrdinalIgnoreCase)) 
+                    {
+                        // RoosterPlugin.LogInfo($"[UpdateLoopPreventer] Ignored (Exact): {guid} v{version}");
+                        return true;
+                    }
+
+                    try 
+                    {
+                        Version v1 = ParseVersionSafe(ignoredVer);
+                        Version v2 = ParseVersionSafe(version);
+                        if (v1 != null && v2 != null && v1.Equals(v2)) 
+                        {
+                             // RoosterPlugin.LogInfo($"[UpdateLoopPreventer] Ignored (Semantic): {guid} v{version}");
+                             return true;
+                        }
+                    } 
+                    catch {}
+                }
+            }
+            return false;
+        }
+
+        private static Version ParseVersionSafe(string v)
+        {
+            try 
+            {
+                v = VersionComparer.CleanVersionString(v);
+                if (Version.TryParse(v, out var ver)) return ver;
+            } 
+            catch {}
+            return null;
         }
     }
 }

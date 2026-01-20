@@ -270,6 +270,9 @@ namespace Rooster.UI
             var le = btnObj.AddComponent<LayoutElement>();
             le.preferredHeight = height;
             le.preferredWidth = width;
+            
+            var rt = btnObj.GetComponent<RectTransform>();
+            if (rt != null) rt.sizeDelta = new Vector2(width, height);
 
             // Label
             var label = btnObj.GetComponentInChildren<TabletTextLabel>();
@@ -278,6 +281,14 @@ namespace Rooster.UI
                 label.text = text;
                 label.transform.localScale = new Vector3(0.5f, 0.5f, 1f); 
                 label.labelType = TabletTextLabel.LabelType.Normal;
+                
+                var txt = label.GetComponent<Text>();
+                if (txt != null)
+                {
+                    txt.horizontalOverflow = HorizontalWrapMode.Overflow;
+                    txt.verticalOverflow = VerticalWrapMode.Overflow;
+                    txt.alignment = TextAnchor.MiddleCenter;
+                }
             }
 
             // Button Component
@@ -602,7 +613,10 @@ namespace Rooster.UI
             var confirmBtn = CreateButton(actionRow.transform, modal.okButton, "Confirm Uninstall", 400, 80);
             ApplyTheme(confirmBtn, Themes.Danger);
             confirmBtn.OnClick = new TabletButtonEvent();
-            confirmBtn.OnClick.AddListener((c) => onConfirmed?.Invoke(deleteConfig));
+            confirmBtn.OnClick.AddListener((c) => {
+                 UnityEngine.Debug.Log($"[UI Debug] Confirm Button Clicked. Invoking onConfirmed with {deleteConfig}");
+                 onConfirmed?.Invoke(deleteConfig);
+            });
 
             var cancelBtn = CreateButton(actionRow.transform, modal.okButton, "Cancel", 400, 80);
             cancelBtn.OnClick = new TabletButtonEvent();
@@ -610,6 +624,89 @@ namespace Rooster.UI
                 if (toHide != null) toHide.SetActive(true);
                 onCancelled?.Invoke();
             });
+        }
+
+        public static void ShowRestartPrompt(TabletModalOverlay modal, string title, string message, Action onLater)
+        {
+            RoosterPlugin.LogInfo($"[UI] ShowRestartPrompt called. Title: {title}");
+            SetupModal(modal, new Vector2(1000, 500), title, null);
+            
+            // Explicitly hide the standard OK button since we provide custom ones
+            if(modal.okButtonContainer != null) 
+            {
+                modal.okButtonContainer.gameObject.SetActive(false);
+            }
+
+            var container = modal.simpleMessageContainer;
+
+            // Ensure the container itself has a layout handler if needed
+            var layout = container.gameObject.GetComponent<VerticalLayoutGroup>() ?? container.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.spacing = 30f;
+            layout.padding = new RectOffset(40, 40, 40, 40);
+            layout.childForceExpandHeight = false;
+            layout.childForceExpandWidth = true;
+            layout.childControlHeight = true;
+            layout.childControlWidth = true;
+
+            // Message
+            var msgObj = CreateText(container.transform, message, 34, TextAnchor.MiddleCenter, Color.white);
+            msgObj.name = "CustomMessageText";
+            
+            var msgLe = msgObj.GetComponent<LayoutElement>();
+            if (msgLe) {
+                msgLe.preferredHeight = 200; 
+                msgLe.minHeight = 100;
+            }
+
+            // Buttons Row
+            var btnRow = new GameObject("ButtonRow", typeof(RectTransform));
+            btnRow.transform.SetParent(container.transform, false);
+            
+            var rowLe = btnRow.AddComponent<LayoutElement>();
+            rowLe.preferredHeight = 100f;
+            rowLe.minHeight = 80f;
+            rowLe.flexibleWidth = 1f;
+            
+            var hLayout = btnRow.AddComponent<HorizontalLayoutGroup>();
+            hLayout.childAlignment = TextAnchor.MiddleCenter;
+            hLayout.spacing = 40f;
+            hLayout.childForceExpandWidth = false;
+            hLayout.childForceExpandHeight = false; // CRITICAL: Prevent vertical stretching
+            hLayout.childControlWidth = true;
+            hLayout.childControlHeight = true;
+            
+            // Restart Button
+            var restartBtn = CreateButton(btnRow.transform, modal.okButton, "Quit to Desktop", 350, 70);
+            ApplyTheme(restartBtn, Themes.Success);
+            
+            var lb = restartBtn.GetComponentInChildren<TabletTextLabel>();
+            if(lb) {
+                    var t = lb.GetComponent<Text>();
+                    if(t) t.fontSize = 28;
+            }
+
+            restartBtn.OnClick = new TabletButtonEvent();
+            restartBtn.OnClick.AddListener((c) => Application.Quit());
+            restartBtn.SetDisabled(false);
+            restartBtn.SetInteractable(true);
+
+            // Later Button
+            var laterBtn = CreateButton(btnRow.transform, modal.okButton, "Later", 350, 70);
+            ApplyTheme(laterBtn, Themes.Neutral);
+            
+                var lb2 = laterBtn.GetComponentInChildren<TabletTextLabel>();
+            if(lb2) {
+                    var t = lb2.GetComponent<Text>();
+                    if(t) t.fontSize = 24;
+            }
+
+            laterBtn.OnClick = new TabletButtonEvent();
+            laterBtn.OnClick.AddListener((c) => onLater?.Invoke());
+            laterBtn.SetDisabled(false);
+            laterBtn.SetInteractable(true);
+            
+            LayoutRebuilder.ForceRebuildLayoutImmediate(container.GetComponent<RectTransform>());
         }
     }
 }

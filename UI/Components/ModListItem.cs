@@ -81,6 +81,10 @@ namespace Rooster.UI.Components
 
         private static UIHelpers.ButtonTheme GetThemeForPackage(ThunderstorePackage pkg)
         {
+            if (UpdateChecker.IsPendingUninstall(pkg.full_name))
+            {
+                return UIHelpers.Themes.Danger;
+            }
             if (UpdateChecker.IsPackageInstalled(pkg.full_name))
             {
                 return UIHelpers.Themes.Success;

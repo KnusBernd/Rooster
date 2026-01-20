@@ -27,6 +27,16 @@ namespace Rooster
         public static bool IsModInstalled(string guid) => MatchedPackages.ContainsKey(guid);
         public static bool IsPackageInstalled(string fullName) => InstalledPackageIds.Contains(fullName);
 
+        public static bool IsPendingUninstall(string fullName)
+        {
+            foreach (var pair in MatchedPackages)
+            {
+                if (pair.Value.full_name == fullName && PendingUninstalls.Contains(pair.Key))
+                    return true;
+            }
+            return false;
+        }
+
         /// <summary>Runs the update check process as a coroutine.</summary>
         public static IEnumerator CheckForUpdates()
         {
@@ -44,6 +54,8 @@ namespace Rooster
 
             // Auto-discover GitHub projects
             yield return GitHubApi.BuildCache();
+            yield return new WaitUntil(() => !GitHubApi.IsCaching);
+
             if (GitHubApi.CachedPackages != null && GitHubApi.CachedPackages.Count > 0)
             {
                 RoosterPlugin.LogInfo($"UpdateChecker: Merging {GitHubApi.CachedPackages.Count} GitHub packages.");
@@ -142,6 +154,11 @@ namespace Rooster
 
                 if (updateInfo != null)
                 {
+                    // Populate metadata
+                    updateInfo.FullName = matchedPkg.full_name;
+                    updateInfo.Description = matchedPkg.description;
+                    updateInfo.WebsiteUrl = matchedPkg.website_url;
+
                     if (RoosterConfig.IsModIgnored(guid) || UpdateLoopPreventer.IsVersionIgnored(guid, matchedPkg.latest.version_number))
                     {
                         // Update ignored code path
@@ -258,7 +275,14 @@ namespace Rooster
                     bool installSuccess = false;
                     try { onStatusUpdate?.Invoke(update, "Installing..."); } catch {}
 
-                    UpdateInstaller.InstallMod(zipPath, update.PluginInfo, (success, error) =>
+                    UpdateInstaller.InstallMod(zipPath, update.PluginInfo, new ThunderstorePackage 
+                    {
+                        name = update.ModName,
+                        full_name = update.FullName,
+                        description = update.Description,
+                        website_url = update.WebsiteUrl,
+                        latest = new ThunderstoreVersion { version_number = update.Version }
+                    }, (success, error) =>
                     {
                         try 
                         {
