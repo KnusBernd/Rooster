@@ -43,12 +43,11 @@ namespace Rooster
         }
 
         /// <summary>
-        /// Removes temporary backup files (.old) created during hot-swapping updates.
-        /// Failing to clean these up doesn't break anything, so errors are swallowed to prevent startup noise.
+        /// Removes temporary backup files (.old, .deleted) created during hot-swapping updates and mod uninstallation.
         /// </summary>
         private void CleanupOldFiles()
         {
-            string pluginsPath = Paths.PluginPath;
+            string pluginsPath = Paths.GameRootPath;
             if (!System.IO.Directory.Exists(pluginsPath)) return;
 
             try

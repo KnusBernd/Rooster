@@ -41,6 +41,43 @@ If strict naming isn't possible, here is a detailed breakdown of how points are 
     -   *Score*: `+65 points` if the name is 12+ characters, otherwise `+50 points`.
 -   **Fuzzy Prefix Match**: `+60 points`
     -   *Criterion*: Your plugin name shares a significant prefix with the Thunderstore name (e.g. `LevelTools` vs `LevelToolsMod`).
+    
+## GitHub Mods
+Rooster supports installing mods directly from GitHub via a curated list. This is useful for mods that are not on Thunderstore or for testing development builds.
+
+### Artifact Auto-Discovery
+Rooster automatically scans your repository to find mod artifacts using the following strategies, in order of priority:
+
+1.  **Release Assets**: Checks standard GitHub Releases for attached `.zip` or `.dll` files.
+    - *Best for*: Standard releases.
+2.  **Release Body Links**: Scans the release description text for direct `http/https` links to `.zip` files.
+    - *Best for*: Hosting files externally (e.g., Google Drive, Discord) while using GitHub Releases for changelogs.
+3.  **Source Tree Scan (Fallback)**: If no release assets are found, Rooster recursively scans the repository's `HEAD` file tree for any `.dll` or `.zip` files.
+    - *Best for*: Simple mods that just commit the compiled DLL to the repo.
+    - *Note*: Mods found this way are assigned version `1.0.0` by default.
+
+### Matching Requirements
+Files found via these strategies are converted into virtual packages. The **filename** determines the package name `(e.g., MyMod.dll -> MyMod)`. 
+Ensure your artifact filename matches your `BepInPlugin` name to satisfy the [Auto-Discovery](#how-to-name-your-mod) rules explained above.
+
+### Curated List
+To be visible in Rooster, your repository must be added to the internal curated list. Submit a Pull Request to add your repo (User/Repo).
+
+## Developer Verification Tool (Built-in)
+Rooster includes a hidden developer tool to verify your mod's match score directly in-game.
+
+### Enabling the Tool
+1.  Open `BepInEx/config/de.knusbernd.rooster.cfg` (or use Configuration Manager).
+2.  Set `DeveloperMode = true`.
+3.  In-game, press **F3** to toggle the Developer UI.
+
+### Features
+-   **Live Inspector**: Click any running plugin to see a detailed **Match Report**, explaining exactly which rules triggered heavily.
+-   **Match Simulator**: 
+    -   Enter your **Local Mod Details** (GUID and Name).
+    -   Enter your target **Thunderstore Details** (Date Package Name and optional Repo URL).
+    -   **Click Simulate**: The tool will calculate the exact score your mod would get.
+    -   *Ghost Text*: Use the gray placeholder text as default values to quickly test the example logic.
 
 ## Mod Structure
 Rooster supports three types of ZIP structures for installation and automatically handles path changes and folder unwrapping.
@@ -81,19 +118,3 @@ Rooster understands that developers sometimes use different version formats (e.g
 -   **Strips Prefixes**: `v1.2` becomes `1.2`.
 -   **Ignores Metadata**: Anything after a hyphen is ignored (`1.0.0-beta` -> `1.0.0`).
 -   **Normalizes Padding**: `1.2` is treated as equal to `1.2.0`.
-
-## Developer Verification Tool (Built-in)
-Rooster includes a hidden developer tool to verify your mod's match score directly in-game.
-
-### Enabling the Tool
-1.  Open `BepInEx/config/de.knusbernd.rooster.cfg` (or use Configuration Manager).
-2.  Set `DeveloperMode = true`.
-3.  In-game, press **F3** to toggle the Developer UI.
-
-### Features
--   **Live Inspector**: Click any running plugin to see a detailed **Match Report**, explaining exactly which rules triggered heavily.
--   **Match Simulator**: 
-    -   Enter your **Local Mod Details** (GUID and Name).
-    -   Enter your target **Thunderstore Details** (Date Package Name and optional Repo URL).
-    -   **Click Simulate**: The tool will calculate the exact score your mod would get.
-    -   *Ghost Text*: Use the gray placeholder text as default values to quickly test the example logic.

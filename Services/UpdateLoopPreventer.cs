@@ -16,7 +16,6 @@ namespace Rooster.Services
     {
         private static string StoragePath => Path.Combine(Paths.ConfigPath, "Rooster_UpdateLoopData.json");
 
-
         private class LoopData
         {
             public List<string> PendingInstalls = new List<string>();
@@ -267,10 +266,12 @@ namespace Rooster.Services
             try
             {
                 v = VersionComparer.CleanVersionString(v);
-                if (Version.TryParse(v, out var ver)) return ver;
+                return Version.TryParse(v, out var ver) ? ver : null;
             }
-            catch { }
-            return null;
+            catch
+            {
+                return null;
+            }
         }
     }
 }

@@ -2,7 +2,6 @@
 
 A BepInEx mod manager for **Ultimate Chicken Horse** that keeps your mods up to date.
 
-
 > [!WARNING]
 > **BETA STATUS**: Rooster is in active development. Features are experimental. Backing up your `BepInEx/plugins` folder is recommended to keep your setup safe while testing.
 
@@ -10,6 +9,7 @@ A BepInEx mod manager for **Ultimate Chicken Horse** that keeps your mods up to 
 
 - **Auto-Discovery** — Matches installed mods to Thunderstore packages using smart heuristics
 - **One-Click Updates** — Download and install updates from the main menu
+- **GitHub Support** — Install curated mods hosted directly on GitHub
 - **Ignore Updates** — Hide notifications for mods you don't want to update
 - **Auto-Update** — Optionally enable automatic updates per mod
 - **Hot Swap** — Updates are staged and applied on next game restart
@@ -26,20 +26,19 @@ A BepInEx mod manager for **Ultimate Chicken Horse** that keeps your mods up to 
 
 On game startup, Rooster performs the following steps:
 
-1. **Fetches Package List**: Downloads the complete list of UCH mods from the Experimental Thunderstore API.
+1. **Fetches Package List**: Downloads the complete list of UCH mods from Thunderstore and the curated GitHub list.
 2. **Scans Installed Plugins**: Reads the metadata (`BepInPlugin`) from all `.dll` files in your plugins folder.
 3. **Matches Packages**: Uses a specific scoring system to link your local files to online packages.
 4. **Checks Versions**: Compares your installed version against the latest online version.
 5. **Notifies**: If updates are found, a popup appears.
 
-
 ## Security & Privacy
 
 Rooster takes security seriously to ensure your game and computer remain safe while modding.
 
--   **Trusted Source**: Rooster **only** connects to the official [Thunderstore API](https://thunderstore.io/). It never communicates with third-party or unknown servers.
--   **Data Privacy**: The connection is **one-way**. Rooster downloads the public mod list from Thunderstore. It **never** uploads your installed mods, usage data, or personal information.
--   **Integrity Verification**: Currently, Rooster relies on HTTPS transport security.
+-   **Trusted Source**: Rooster **only** connects to the official [Thunderstore API](https://thunderstore.io/) and GitHub. It never communicates with third-party or unknown servers.
+-   **Data Privacy**: The connection is **one-way**. Rooster downloads the public mod list from Thunderstore/GitHub. It **never** uploads your installed mods, usage data, or personal information.
+-   **Integrity Verification**: Currently, Rooster relies on HTTPS transport security. Thunderstore mods are approved by the Thunderstore community. GitHub mods are curated by the Rooster team.    
 -   **Open Source**: The full source code is available for audit, ensuring transparency in how your mods are managed.
 -   **User Control**: You are in charge. You can ignore specific mods or disable auto-updates entirely if you prefer manual management.
 
@@ -61,11 +60,10 @@ If you're a mod developer, see [DEVELOPERS.md](https://github.com/KnusBernd/Roos
 - Structuring your ZIP package for proper installation
 - Troubleshooting detection issues
 
-## Roadmap & Todo & Nice to have
+## Todo & Nice to have
 - [ ] **Config Editor**: Reuse the UCH Tablet UI to create a full BepInEx configuration editor (replacing the need for configuration manager)
-- [ ] **GitHub Integration**: Fetch and display metadata from GitHub, including detailed release notes, changelogs, and issue trackers for open-source mods
 - [ ] **Scalability Optimization**: Improve API fetching to handle large mod lists efficiently (e.g. pagination or caching) instead of fetching all at once, currently with less than 50 mods it's not necessary.
-
+- **Multi Language Support**: Add support for multiple languages.
 ## Support
 
 If you experience issues, have questions, or want to contribute, join the **UCH Mods Discord Server**:

@@ -89,9 +89,7 @@ namespace Rooster
 
                 ThunderstorePackage matchedPkg = ModMatcher.FindPackage(plugin, CachedPackages);
 
-                if (matchedPkg == null && plugin.Metadata.Name.IndexOf("RemovePlayerPlacements", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                }
+
 
                 if (matchedPkg != null)
                 {
@@ -141,9 +139,10 @@ namespace Rooster
                 {
                     updateInfo.WebsiteUrl = matchedPkg.WebsiteUrl;
 
-                    if (RoosterConfig.IsModIgnored(guid) || UpdateLoopPreventer.IsVersionIgnored(guid, matchedPkg.Latest.VersionNumber))
-                    {
-                    }
+                if (RoosterConfig.IsModIgnored(guid) || UpdateLoopPreventer.IsVersionIgnored(guid, matchedPkg.Latest.VersionNumber))
+                {
+                    // Ignored
+                }
                     else if (RoosterConfig.IsModAutoUpdate(guid))
                     {
                         RoosterPlugin.LogInfo($"Auto-Update triggered for {modName}");
@@ -213,30 +212,11 @@ namespace Rooster
 
             if (notificationRoutine != null) RoosterPlugin.Instance.StopCoroutine(notificationRoutine);
 
+
+
             if (manualUpdates.Count > 0)
             {
-                try
-                {
-                    try
-                    {
-                        // Notification removed as per user request
-                    }
-                    catch { }
-                }
-                catch { }
-                Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
-            }
-            else
-            {
-                try
-                {
-                    try
-                    {
-                        // Notification removed as per user request
-                    }
-                    catch { }
-                }
-                catch { }
+                 Patches.MainMenuPopupPatch.ShowPopupIfNeeded();
             }
         }
 

@@ -16,53 +16,30 @@ namespace Rooster.Services
         public const string API_URL = "https://thunderstore.io/c/ultimate-chicken-horse/api/v1/package/";
 
         /// <summary>Fetches all packages from Thunderstore with retry logic.</summary>
+        /// <summary>Fetches all packages from Thunderstore with retry logic.</summary>
         public static IEnumerator FetchAllPackages(Action<List<ThunderstorePackage>, string> onComplete)
         {
-            int maxRetries = 3;
-            for (int i = 0; i < maxRetries; i++)
+            yield return NetworkHelper.Get(API_URL, null, (success, result) =>
             {
-                using (UnityWebRequest www = UnityWebRequest.Get(API_URL))
+                if (success)
                 {
-                    yield return www.SendWebRequest();
-
-                    if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
+                    try
                     {
-                        RoosterPlugin.LogError($"Failed to fetch packages: {www.error}");
-                        if (i == maxRetries - 1)
-                        {
-                            onComplete?.Invoke(new List<ThunderstorePackage>(), $"Failed to fetch: {www.error}");
-                            yield break;
-                        }
+                        var packages = ParsePackageList(result);
+                        onComplete?.Invoke(packages, null);
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        try
-                        {
-                            string json = www.downloadHandler.text;
-                            var packages = ParsePackageList(json);
-                            onComplete?.Invoke(packages, null);
-                            yield break;
-                        }
-                        catch (Exception ex)
-                        {
-                            RoosterPlugin.LogError($"Error parsing package list: {ex}");
-                            if (i == maxRetries - 1)
-                            {
-                                onComplete?.Invoke(new List<ThunderstorePackage>(), $"Parse Error: {ex.Message}");
-                                yield break;
-                            }
-                        }
+                        RoosterPlugin.LogError($"Error parsing package list: {ex}");
+                        onComplete?.Invoke(new List<ThunderstorePackage>(), $"Parse Error: {ex.Message}");
                     }
                 }
-
-                if (i < maxRetries - 1)
+                else
                 {
-                    yield return new WaitForSecondsRealtime(2.0f);
+                    RoosterPlugin.LogError($"Failed to fetch packages: {result}");
+                    onComplete?.Invoke(new List<ThunderstorePackage>(), result);
                 }
-            }
-
-            RoosterPlugin.LogError($"Gave up after {maxRetries} attempts.");
-            onComplete?.Invoke(new List<ThunderstorePackage>(), "Max retries exceeded.");
+            }, retries: 3);
         }
 
         public static List<ThunderstorePackage> ParsePackageList(string json)
@@ -133,26 +110,16 @@ namespace Rooster.Services
         {
             string expUrl = $"https://thunderstore.io/api/experimental/package/{owner}/{packageName}/";
 
-            using (UnityWebRequest www = UnityWebRequest.Get(expUrl))
+            yield return NetworkHelper.Get(expUrl, null, (success, result) =>
             {
-                yield return www.SendWebRequest();
-
-                if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
-                {
-                    RoosterPlugin.LogError($"Failed to fetch fresh version for {owner}/{packageName}: {www.error}");
-                    onComplete?.Invoke(null, null);
-                }
-                else
+                if (success)
                 {
                     try
                     {
-                        string json = www.downloadHandler.text;
-                        var root = JSON.Parse(json);
-
+                        var root = JSON.Parse(result);
                         var latest = root["latest"];
                         string version = latest["version_number"];
                         string downloadUrl = latest["download_url"];
-
                         onComplete?.Invoke(version, downloadUrl);
                     }
                     catch (Exception ex)
@@ -161,7 +128,12 @@ namespace Rooster.Services
                         onComplete?.Invoke(null, null);
                     }
                 }
-            }
+                else
+                {
+                    RoosterPlugin.LogError($"Failed to fetch fresh version for {owner}/{packageName}: {result}");
+                    onComplete?.Invoke(null, null);
+                }
+            });
         }
     }
 }

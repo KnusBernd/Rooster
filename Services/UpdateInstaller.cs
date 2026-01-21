@@ -46,13 +46,9 @@ namespace Rooster.Services
 
             try
             {
-                // RoosterPlugin.LogInfo($"Installing {contextName} from {zipPath}...");
-
                 string packageRoot = ExtractAndFindRoot(zipPath, tempExtractPath);
 
                 string targetDirectory = DetermineTargetDirectory(packageRoot, defaultTargetStrategy);
-
-                // RoosterPlugin.LogInfo($"Target Directory: {targetDirectory}");
 
                 List<string> installedFiles = new List<string>();
 
@@ -80,7 +76,6 @@ namespace Rooster.Services
 
                 ClearBepInExCache();
 
-                // RoosterPlugin.LogInfo("Installation successful. Restart required.");
                 onComplete?.Invoke(true, null);
             }
             catch (Exception ex)
@@ -313,7 +308,10 @@ namespace Rooster.Services
                 if (isDir && Directory.Exists(path)) Directory.Delete(path, true);
                 else if (!isDir && File.Exists(path)) File.Delete(path);
             }
-            catch { /* Ignore cleanup errors */ }
+            catch (Exception ex)
+            { 
+                 RoosterPlugin.LogWarning($"[Cleanup] Failed to delete {path}: {ex.Message}");
+            }
         }
     }
 }

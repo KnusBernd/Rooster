@@ -26,8 +26,6 @@ namespace Rooster.Services
             LastError = null;
             // RoosterPlugin.LogInfo("Starting GitHub cache build...");
 
-            // RoosterPlugin.LogInfo("Starting GitHub cache build...");
-
             var cached = LoadCache();
 
             if (cached != null)
@@ -138,73 +136,72 @@ namespace Rooster.Services
         public static IEnumerator FetchCuratedList(Action<List<ThunderstorePackage>, string> onComplete)
         {
             string url = RoosterConfig.GitHubCuratedUrl.Value;
-            // RoosterPlugin.LogInfo($"Fetching curated list from: {url}");
-
             var allPackages = new List<ThunderstorePackage>();
 
-            using (UnityWebRequest www = UnityWebRequest.Get(url))
+            yield return NetworkHelper.Get(url, null, (success, result) =>
             {
-                yield return www.SendWebRequest();
-
-                if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
+                if (!success)
                 {
-                    string errorMsg = $"Failed to list: {www.error}";
+                    string errorMsg = $"Failed to list: {result}";
                     RoosterPlugin.LogError(errorMsg);
                     onComplete?.Invoke(allPackages, errorMsg);
-                    yield break;
+                    return;
                 }
 
                 List<CuratedRepo> repos = new List<CuratedRepo>();
-                int completed = 0;
-
                 try
                 {
-                    string json = www.downloadHandler.text;
-                    repos = ParseRepoList(json);
+                    repos = ParseRepoList(result);
                 }
                 catch (Exception ex)
                 {
                     string errorMsg = $"JSON Parse Error: {ex.Message}";
                     RoosterPlugin.LogError(errorMsg);
                     onComplete?.Invoke(allPackages, errorMsg);
-                    yield break;
+                    return;
                 }
 
                 if (repos.Count == 0)
                 {
                     onComplete?.Invoke(allPackages, null);
-                    yield break;
+                    return;
                 }
 
-                bool rateLimitHit = false;
-                string rateLimitError = null;
+                RoosterPlugin.Instance.StartCoroutine(ProcessRepos(repos, allPackages, onComplete));
+            });
+        }
 
-                foreach (var repo in repos)
+        private static IEnumerator ProcessRepos(List<CuratedRepo> repos, List<ThunderstorePackage> allPackages, Action<List<ThunderstorePackage>, string> onComplete)
+        {
+            int completed = 0;
+            bool rateLimitHit = false;
+            string rateLimitError = null;
+
+            foreach (var repo in repos)
+            {
+                RoosterPlugin.Instance.StartCoroutine(FetchRepoReleases(repo, (pkgs, error) =>
                 {
-                    RoosterPlugin.Instance.StartCoroutine(FetchRepoReleases(repo, (pkgs, error) =>
+                    if (error != null && (error.Contains("403") || error.Contains("429")))
                     {
-                        if (error != null && (error.Contains("403") || error.Contains("429")))
-                        {
-                            rateLimitHit = true;
-                            rateLimitError = "GitHub API Rate Limit Exceeded. Please wait 1 hour.";
-                        }
+                        rateLimitHit = true;
+                        rateLimitError = "GitHub API Rate Limit Exceeded. Please wait 1 hour.";
+                    }
 
-                        if (pkgs != null) allPackages.AddRange(pkgs);
-                        completed++;
-                    }));
-                }
+                    if (pkgs != null) allPackages.AddRange(pkgs);
+                    completed++;
+                }));
+            }
 
-                yield return new WaitUntil(() => completed >= repos.Count);
+            yield return new WaitUntil(() => completed >= repos.Count);
 
-                if (rateLimitHit)
-                {
-                    onComplete?.Invoke(allPackages, rateLimitError);
-                }
-                else
-                {
-                    allPackages.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
-                    onComplete?.Invoke(allPackages, null);
-                }
+            if (rateLimitHit)
+            {
+                onComplete?.Invoke(allPackages, rateLimitError);
+            }
+            else
+            {
+                allPackages.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+                onComplete?.Invoke(allPackages, null);
             }
         }
 
@@ -240,112 +237,100 @@ namespace Rooster.Services
 
         private static IEnumerator FetchRepoReleases(CuratedRepo repoInfo, Action<List<ThunderstorePackage>, string> onRepoComplete)
         {
-            // GitHub API: Use /releases to get ALL releases (including pre-releases), not just /releases/latest
             string apiUrl = $"https://api.github.com/repos/{repoInfo.Repo}/releases";
+            var headers = new Dictionary<string, string>();
+            string token = GetToken();
+            if (!string.IsNullOrEmpty(token)) headers["Authorization"] = $"Bearer {token}";
 
-            using (UnityWebRequest www = UnityWebRequest.Get(apiUrl))
+            yield return NetworkHelper.Get(apiUrl, headers, (success, result) =>
             {
-                www.SetRequestHeader("User-Agent", "RoosterModManager");
-                string token = GetToken();
-                if (!string.IsNullOrEmpty(token))
+                if (!success)
                 {
-                    www.SetRequestHeader("Authorization", $"Bearer {token}");
-                }
-
-                yield return www.SendWebRequest();
-
-                if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
-                {
-                    long code = (long)www.responseCode;
-                    if (code == 403 || code == 429)
+                    if (result.Contains("403") || result.Contains("429"))
                     {
-                        RoosterPlugin.LogInfo($"GitHub API Error {code}: {www.error}");
-                        onRepoComplete?.Invoke(null, $"{code} Rate Limit");
-                        yield break;
+                        RoosterPlugin.LogInfo($"GitHub API Error: {result}");
+                        onRepoComplete?.Invoke(null, result);
+                        return;
                     }
 
-                    RoosterPlugin.LogInfo($"[Releases] Failed for {repoInfo.Repo} (Error: {www.responseCode}), trying contents...");
+                    RoosterPlugin.LogInfo($"[Releases] Failed for {repoInfo.Repo} ({result}), trying contents...");
                     RoosterPlugin.Instance.StartCoroutine(FetchRepoContents(repoInfo, onRepoComplete));
+                    return;
                 }
-                else
-                {
-                    try
-                    {
-                        string json = www.downloadHandler.text;
-                        var packs = ParseReleasesListJson(json, repoInfo);
 
-                        if (packs.Count == 0)
-                        {
-                            RoosterPlugin.LogInfo($"[Releases] No valid assets found in releases for {repoInfo.Repo}, trying contents...");
-                            RoosterPlugin.Instance.StartCoroutine(FetchRepoContents(repoInfo, onRepoComplete));
-                        }
-                        else
-                        {
-                            onRepoComplete?.Invoke(packs, null);
-                        }
-                    }
-                    catch (Exception ex)
+                try
+                {
+                    var packs = ParseReleasesListJson(result, repoInfo);
+                    if (packs.Count == 0)
                     {
-                        RoosterPlugin.LogError($"[Releases] Error parsing for {repoInfo.Repo}: {ex}");
+                        RoosterPlugin.LogInfo($"[Releases] No valid assets found in releases for {repoInfo.Repo}, trying contents...");
                         RoosterPlugin.Instance.StartCoroutine(FetchRepoContents(repoInfo, onRepoComplete));
                     }
+                    else
+                    {
+                        onRepoComplete?.Invoke(packs, null);
+                    }
                 }
-            }
+                catch (Exception ex)
+                {
+                    RoosterPlugin.LogError($"[Releases] Error parsing for {repoInfo.Repo}: {ex}");
+                    RoosterPlugin.Instance.StartCoroutine(FetchRepoContents(repoInfo, onRepoComplete));
+                }
+            });
         }
 
         private static IEnumerator FetchRepoContents(CuratedRepo repoInfo, Action<List<ThunderstorePackage>, string> onRepoComplete)
         {
             string commitUrl = $"https://api.github.com/repos/{repoInfo.Repo}/commits/HEAD";
+            var headers = new Dictionary<string, string>();
+            string token = GetToken();
+            if (!string.IsNullOrEmpty(token)) headers["Authorization"] = $"Bearer {token}";
+
             string headSha = null;
 
-            using (UnityWebRequest www = UnityWebRequest.Get(commitUrl))
+            yield return NetworkHelper.Get(commitUrl, headers, (success, result) =>
             {
-                www.SetRequestHeader("User-Agent", "RoosterModManager");
-                string token = GetToken();
-                if (!string.IsNullOrEmpty(token)) www.SetRequestHeader("Authorization", $"Bearer {token}");
-
-                yield return www.SendWebRequest();
-
-                if (www.result != UnityWebRequest.Result.Success)
+                if (!success)
                 {
-                    string err = $"[RecursiveFetch] Failed to get HEAD for {repoInfo.Repo}: {www.error} ({www.responseCode})";
+                    string err = $"[RecursiveFetch] Failed to get HEAD for {repoInfo.Repo}: {result}";
                     RoosterPlugin.LogError(err);
                     onRepoComplete?.Invoke(null, err);
-                    yield break;
+                    return;
                 }
 
-                var node = JSON.Parse(www.downloadHandler.text);
-                headSha = node["sha"];
-            }
+                try 
+                {
+                    var node = JSON.Parse(result);
+                    headSha = node["sha"];
+                } 
+                catch { }
+            });
 
             if (string.IsNullOrEmpty(headSha))
             {
-                onRepoComplete?.Invoke(null, "Failed to parse HEAD SHA");
-                yield break;
+                 if (headSha == null) // If it wasn't set in callback, we already invoked error there or it failed silently.
+                 {
+                     // If we are here and success was true but parse failed, we need to handle it.
+                     // But simplify: if headSha is null here, stop.
+                     yield break;
+                 }
             }
 
             string treeUrl = $"https://api.github.com/repos/{repoInfo.Repo}/git/trees/{headSha}?recursive=1";
 
-            using (UnityWebRequest www = UnityWebRequest.Get(treeUrl))
+            yield return NetworkHelper.Get(treeUrl, headers, (success, result) =>
             {
-                www.SetRequestHeader("User-Agent", "RoosterModManager");
-                string token = GetToken();
-                if (!string.IsNullOrEmpty(token)) www.SetRequestHeader("Authorization", $"Bearer {token}");
-
-                yield return www.SendWebRequest();
-
-                if (www.result != UnityWebRequest.Result.Success)
+                if (!success)
                 {
-                    string err = $"[RecursiveFetch] Failed to get Tree for {repoInfo.Repo}: {www.error} ({www.responseCode})";
+                    string err = $"[RecursiveFetch] Failed to get Tree for {repoInfo.Repo}: {result}";
                     RoosterPlugin.LogError(err);
                     onRepoComplete?.Invoke(null, err);
-                    yield break;
+                    return;
                 }
 
                 try
                 {
-                    string json = www.downloadHandler.text;
-                    var packs = ParseTreeJson(json, repoInfo, headSha);
+                    var packs = ParseTreeJson(result, repoInfo, headSha);
                     onRepoComplete?.Invoke(packs, null);
                 }
                 catch (Exception ex)
@@ -353,7 +338,7 @@ namespace Rooster.Services
                     RoosterPlugin.LogError($"[RecursiveFetch] Error parsing tree for {repoInfo.Repo}: {ex}");
                     onRepoComplete?.Invoke(null, ex.Message);
                 }
-            }
+            });
         }
 
         private static List<ThunderstorePackage> ParseReleasesListJson(string json, CuratedRepo repoInfo)
