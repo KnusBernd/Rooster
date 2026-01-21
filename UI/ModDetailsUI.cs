@@ -71,10 +71,32 @@ namespace Rooster.UI
             // Title & Author
             UIHelpers.AddText(_detailsContainer.transform, pkg.Name.Replace('_', ' '), 40, true, Color.white);
             string author = pkg.FullName?.Split('-')[0] ?? "Unknown";
-            UIHelpers.AddText(_detailsContainer.transform, $"by {author}", 24, false, new Color(0.8f, 0.8f, 0.8f));
+            string authorText = $"by {author}";
+            if (!string.IsNullOrEmpty(pkg.SecondaryAuthor))
+            {
+                authorText = $"by {pkg.SecondaryAuthor} (forked by {author})";
+            }
+            UIHelpers.AddText(_detailsContainer.transform, authorText, 24, false, new Color(0.8f, 0.8f, 0.8f));
 
             // Description
             UIHelpers.AddText(_detailsContainer.transform, pkg.Description, 20, false, Color.white);
+
+            // View Online Button
+            if (!string.IsNullOrEmpty(pkg.WebsiteUrl))
+            {
+                var viewBtn = UIHelpers.CreateButton(_detailsContainer.transform, modal.okButton, "Open in Browser", 450, 80);
+                if (viewBtn != null)
+                {
+                    UIHelpers.ApplyTheme(viewBtn, UIHelpers.Themes.Neutral);
+                    viewBtn.OnClick = new TabletButtonEvent();
+                    viewBtn.OnClick.AddListener((cursor) =>
+                    {
+                        Application.OpenURL(pkg.WebsiteUrl);
+                    });
+                    viewBtn.SetInteractable(true);
+                    viewBtn.SetDisabled(false);
+                }
+            }
 
             // Installation Logic
             CreateInstallButton(_detailsContainer.transform, pkg);

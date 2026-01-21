@@ -43,6 +43,11 @@ namespace Rooster.UI.Components
                 }
             }
 
+            if (!string.IsNullOrEmpty(pkg.SecondaryAuthor))
+            {
+                author = $"{pkg.SecondaryAuthor} (Fork: {author})";
+            }
+
             string categoryStr = (pkg.Categories != null && pkg.Categories.Count > 0)
                                     ? string.Join(", ", pkg.Categories)
                                     : "Mod";

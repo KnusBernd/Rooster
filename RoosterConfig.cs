@@ -18,6 +18,7 @@ namespace Rooster
         public static ConfigEntry<int> GitHubCacheDuration { get; private set; }
         public static ConfigEntry<string> GitHubTokenPath { get; private set; }
         public static ConfigEntry<bool> GitHubWarningAccepted { get; private set; }
+        public static ConfigEntry<bool> DisclaimerAccepted { get; private set; }
         public static ConfigEntry<bool> AllowGameRootInstallation { get; private set; }
         public static string RoosterConfigPath => System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "Rooster");
 
@@ -27,8 +28,6 @@ namespace Rooster
 
         public static void Init(ConfigFile config)
         {
-            _config = config;
-
             _config = config;
 
             if (!System.IO.Directory.Exists(RoosterConfigPath))
@@ -69,6 +68,13 @@ namespace Rooster
                 "WarningAccepted",
                 false,
                 "Whether the user has accepted the GitHub mod download warning."
+            );
+
+            DisclaimerAccepted = config.Bind(
+                "General",
+                "DisclaimerAccepted",
+                false,
+                "Whether the user has accepted the modding disclaimer."
             );
 
             AllowGameRootInstallation = config.Bind(

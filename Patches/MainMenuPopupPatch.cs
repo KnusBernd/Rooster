@@ -9,7 +9,7 @@ namespace Rooster.Patches
     /// </summary>
     public static class MainMenuPopupPatch
     {
-        public enum MenuState { None, ModMenu, ModSettings, ModBrowser, ModDetails, UpdateMenu, BetaWarning, RestartRequired }
+        public enum MenuState { None, ModMenu, ModSettings, ModBrowser, ModDetails, UpdateMenu, BetaWarning, RestartRequired, Disclaimer }
 
         public static MenuState CurrentMenuState = MenuState.None;
 
