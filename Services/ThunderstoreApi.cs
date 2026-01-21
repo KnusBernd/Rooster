@@ -79,6 +79,13 @@ namespace Rooster.Services
                         foreach (JSONNode c in catsNode) categories.Add(c.Value);
                     }
 
+                    var dependencies = new List<string>();
+                    var depsNode = latestNode["dependencies"].AsArray;
+                    if (depsNode != null)
+                    {
+                        foreach (JSONNode d in depsNode) dependencies.Add(d.Value);
+                    }
+
                     packages.Add(new ThunderstorePackage
                     {
                         Name = pkgName,
@@ -90,6 +97,7 @@ namespace Rooster.Services
                         {
                             VersionNumber = verNum,
                             DownloadUrl = dlUrl ?? "",
+                            Dependencies = dependencies
                         },
                         Oldest = new ThunderstoreVersion
                         {

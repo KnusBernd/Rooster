@@ -4,6 +4,8 @@ using UnityEngine.UI;
 using Rooster.Models;
 using Rooster.Services;
 using BepInEx;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Rooster.UI
 {
@@ -80,6 +82,24 @@ namespace Rooster.UI
 
             // Description
             UIHelpers.AddText(_detailsContainer.transform, pkg.Description, 20, false, Color.white);
+
+            // Dependencies section
+            if (pkg.Latest != null && pkg.Latest.Dependencies != null && pkg.Latest.Dependencies.Count > 0)
+            {
+                var depsToDisplay = pkg.Latest.Dependencies.FindAll(d => !d.Contains("BepInExPack"));
+                if (depsToDisplay.Count > 0)
+                {
+                    UIHelpers.AddText(_detailsContainer.transform, "\nDependencies:", 22, true, Color.white);
+                    foreach (var dep in depsToDisplay)
+                    {
+                        bool isDepInstalled = UpdateChecker.IsPackageInstalled(dep);
+                        Color depColor = isDepInstalled ? new Color(0.4f, 1f, 0.4f) : new Color(1f, 0.8f, 0.2f);
+                        string depStatus = isDepInstalled ? " (Installed)" : " (Missing)";
+                        UIHelpers.AddText(_detailsContainer.transform, $"• {dep}{depStatus}", 18, false, depColor);
+                    }
+                    UIHelpers.AddText(_detailsContainer.transform, "", 10, false, Color.clear); // Spacer
+                }
+            }
 
             // View Online Button
             if (!string.IsNullOrEmpty(pkg.WebsiteUrl))
@@ -203,53 +223,66 @@ namespace Rooster.UI
                     tabletBtn.OnClick = new TabletButtonEvent();
                     tabletBtn.OnClick.AddListener((cursor) =>
                     {
-                        Action startInstall = () =>
+                        Action startInstall = null;
+                        startInstall = () =>
                         {
-                            label.text = "Installing...";
-                            tabletBtn.SetInteractable(false);
-                            tabletBtn.SetDisabled(true);
-
-                            // Force update visual state
-                            if (tabletBtn.background != null) tabletBtn.background.color = UIHelpers.Themes.Success.Disabled;
-
-                            string url = pkg.Latest.DownloadUrl;
-                            string extension = url.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? ".dll" : ".zip";
-                            string fileName = $"{pkg.Name}{extension}";
-                            string tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), fileName);
-
-                            RoosterPlugin.Instance.StartCoroutine(UpdateDownloader.DownloadFile(url, tempPath, (success, err) =>
+                            // Gather all missing dependencies (excluding BepInExPack)
+                            List<ThunderstorePackage> missingDeps = new List<ThunderstorePackage>();
+                            if (pkg.Latest != null && pkg.Latest.Dependencies != null)
                             {
-                                if (success)
+                                foreach (var depName in pkg.Latest.Dependencies)
                                 {
-                                    UpdateInstaller.InstallPackage(tempPath, pkg, (installSuccess, installErr) =>
+                                    if (depName.IndexOf("BepInExPack", StringComparison.OrdinalIgnoreCase) >= 0) continue;
+                                    if (UpdateChecker.IsPackageInstalled(depName)) continue;
+                                    if (UpdateChecker.PendingInstalls.Contains(depName)) continue;
+
+                                    var depPkg = UpdateChecker.CachedPackages.FirstOrDefault(p => p.FullName == depName);
+                                    if (depPkg != null) missingDeps.Add(depPkg);
+                                }
+                            }
+
+                            if (missingDeps.Count > 0)
+                            {
+                                string depList = string.Join("\n", missingDeps.Select(d => d.Name));
+                                UIHelpers.SetupModal(modal, new Vector2(1000, 700), "Missing Dependencies", () => ShowDetails(pkg));
+
+                                var container = modal.simpleMessageContainer;
+                                var layout = container.gameObject.GetComponent<VerticalLayoutGroup>() ?? container.gameObject.AddComponent<VerticalLayoutGroup>();
+                                layout.childAlignment = TextAnchor.MiddleCenter;
+                                layout.spacing = 30f;
+
+                                UIHelpers.AddText(container.transform, $"The following dependencies are required for <b>{pkg.Name}</b> and will be installed automatically:", 28, false, Color.white);
+                                UIHelpers.AddText(container.transform, depList, 24, true, new Color(1f, 0.8f, 0.2f));
+
+                                var installAllBtn = UIHelpers.CreateButton(container.transform, modal.okButton, "Install All", 450, 80);
+                                UIHelpers.ApplyTheme(installAllBtn, UIHelpers.Themes.Success);
+                                installAllBtn.OnClick = new TabletButtonEvent();
+                                installAllBtn.OnClick.AddListener((c) =>
+                                {
+                                    // Install all dependencies first
+                                    Action installNext = null;
+                                    int depIdx = 0;
+
+                                    installNext = () =>
                                     {
-                                        if (installSuccess)
+                                        if (depIdx < missingDeps.Count)
                                         {
-                                            label.text = "Install Pending (Restart required)";
-                                            UpdateChecker.PendingInstalls.Add(pkg.FullName);
-
-                                            // Register with Loop Preventer
-                                            UpdateLoopPreventer.RegisterPendingInstall(pkg.Name, pkg.Latest.VersionNumber);
-
-                                            UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Warning);
+                                            var d = missingDeps[depIdx++];
+                                            InstallOne(d, installNext, (err) => { /* Fatal error logic */ });
                                         }
                                         else
                                         {
-                                            label.text = "Error";
-                                            RoosterPlugin.LogError($"Install error: {installErr}");
-                                            tabletBtn.SetInteractable(true);
-                                            tabletBtn.SetDisabled(false);
+                                            // Finally install the main mod
+                                            ShowDetails(pkg); // Refresh UI to show pending dependencies
+                                            InstallOne(pkg, null, null);
                                         }
-                                    });
-                                }
-                                else
-                                {
-                                    label.text = "Failed";
-                                    tabletBtn.SetInteractable(true);
-                                    tabletBtn.SetDisabled(false);
-                                    RoosterPlugin.LogError($"Download error: {err}");
-                                }
-                            }));
+                                    };
+                                    installNext();
+                                });
+                                return;
+                            }
+
+                            InstallOne(pkg, null, null);
                         };
 
                         // Check for GitHub disclaimer if downloading from GitHub
@@ -321,6 +354,44 @@ namespace Rooster.UI
         }
 
 
+
+        private static void InstallOne(ThunderstorePackage pkg, Action onSuccess, Action<string> onError)
+        {
+            string url = pkg.Latest.DownloadUrl;
+            if (string.IsNullOrEmpty(url))
+            {
+                onError?.Invoke("No download URL");
+                return;
+            }
+
+            string extension = url.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? ".dll" : ".zip";
+            string fileName = $"{pkg.Name}{extension}";
+            string tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), fileName);
+
+            RoosterPlugin.Instance.StartCoroutine(UpdateDownloader.DownloadFile(url, tempPath, (success, err) =>
+            {
+                if (success)
+                {
+                    UpdateInstaller.InstallPackage(tempPath, pkg, (installSuccess, installErr) =>
+                    {
+                        if (installSuccess)
+                        {
+                            UpdateChecker.PendingInstalls.Add(pkg.FullName);
+                            UpdateLoopPreventer.RegisterPendingInstall(pkg.Name, pkg.Latest.VersionNumber);
+                            onSuccess?.Invoke();
+                        }
+                        else
+                        {
+                            onError?.Invoke(installErr);
+                        }
+                    });
+                }
+                else
+                {
+                    onError?.Invoke(err);
+                }
+            }));
+        }
 
         public static void Close()
         {
