@@ -17,7 +17,9 @@ namespace Rooster.UI
 
         // Inspector State
         private PluginInfo _selectedPlugin;
+        private MatchReport _selectedReport;
         private Vector2 _inspectorScroll;
+        private Vector2 _detailsScroll;
 
         // Simulator State
         private string _simGuid = "";
@@ -65,7 +67,12 @@ namespace Rooster.UI
             {
                 if (GUILayout.Toggle(_selectedTab == i, _tabs[i], "Button"))
                 {
-                    _selectedTab = i;
+                    if (_selectedTab != i)
+                    {
+                        _selectedTab = i;
+                        _selectedReport = null;
+                        _detailsScroll = Vector2.zero;
+                    }
                 }
             }
             GUILayout.EndHorizontal();
@@ -95,13 +102,15 @@ namespace Rooster.UI
                 if (GUILayout.Button(displayName))
                 {
                     _selectedPlugin = plugin;
+                    _selectedReport = null; // Clear report when selecting new plugin
+                    _detailsScroll = Vector2.zero;
                 }
             }
             GUILayout.EndScrollView();
             GUILayout.EndVertical();
 
             // Right Panel: Details
-            GUILayout.BeginVertical("Box");
+            _detailsScroll = GUILayout.BeginScrollView(_detailsScroll, "Box");
             if (_selectedPlugin != null)
             {
                 GUILayout.Label($"<b>Selected: {_selectedPlugin.Metadata.Name}</b>");
@@ -109,35 +118,52 @@ namespace Rooster.UI
                 GUILayout.Label($"Version: {_selectedPlugin.Metadata.Version}");
 
                 GUILayout.Space(10);
-                GUILayout.Label("<b>Match Analysis:</b>");
-
-                if (UpdateChecker.MatchedPackages.TryGetValue(_selectedPlugin.Metadata.GUID, out var pkg))
+                
+                if (_selectedReport != null)
                 {
-                    GUILayout.Label($"Matched To: <color=green>{pkg.FullName}</color>");
-
-                    // Re-run matching to get the breakdown live
-                    MatchReport report = ModMatcher.ScoreMatch(pkg, _selectedPlugin.Metadata.GUID, _selectedPlugin.Metadata.Name);
-                    DrawReport(report);
+                    if (GUILayout.Button("<< Back to Analysis"))
+                    {
+                        _selectedReport = null;
+                    }
+                    else
+                    {
+                        DrawReport(_selectedReport);
+                    }
                 }
                 else
                 {
-                    GUILayout.Label("Status: <color=red>Not Matched</color>");
-                    GUILayout.Label("Top Candidates:");
+                    GUILayout.Label("<b>Match Analysis:</b>");
 
-                    // Scan for best candidates to explain why they failed
-                    if (UpdateChecker.CachedPackages != null)
+                    if (UpdateChecker.MatchedPackages.TryGetValue(_selectedPlugin.Metadata.GUID, out var pkg))
                     {
-                        var candidates = UpdateChecker.CachedPackages
-                            .Select(p => new { Pkg = p, Report = ModMatcher.ScoreMatch(p, _selectedPlugin.Metadata.GUID, _selectedPlugin.Metadata.Name) })
-                            .OrderByDescending(x => x.Report.TotalScore)
-                            .Take(3);
+                        GUILayout.Label($"Matched To: <color=green>{pkg.FullName}</color>");
 
-                        foreach (var c in candidates)
+                        // Re-run matching to get the breakdown live
+                        MatchReport report = ModMatcher.ScoreMatch(pkg, _selectedPlugin.Metadata.GUID, _selectedPlugin.Metadata.Name);
+                        DrawReport(report);
+                    }
+                    else
+                    {
+                        GUILayout.Label("Status: <color=red>Not Matched</color>");
+                        GUILayout.Label("Top Candidates:");
+
+                        // Scan for best candidates to explain why they failed
+                        if (UpdateChecker.CachedPackages != null)
                         {
-                            GUILayout.Label($"Candidate: {c.Pkg.FullName} (Score: {c.Report.TotalScore})");
-                            if (GUILayout.Button("View Breakdown"))
+                            var candidates = UpdateChecker.CachedPackages
+                                .Select(p => new { Pkg = p, Report = ModMatcher.ScoreMatch(p, _selectedPlugin.Metadata.GUID, _selectedPlugin.Metadata.Name) })
+                                .OrderByDescending(x => x.Report.TotalScore)
+                                .Take(3);
+
+                            foreach (var c in candidates)
                             {
-                                DrawReport(c.Report);
+                                GUILayout.BeginHorizontal("Box");
+                                GUILayout.Label($"{c.Pkg.FullName} (Score: {c.Report.TotalScore})");
+                                if (GUILayout.Button("View Breakdown", GUILayout.Width(120)))
+                                {
+                                    _selectedReport = c.Report;
+                                }
+                                GUILayout.EndHorizontal();
                             }
                         }
                     }
@@ -147,7 +173,7 @@ namespace Rooster.UI
             {
                 GUILayout.Label("Select a plugin to inspect.");
             }
-            GUILayout.EndVertical();
+            GUILayout.EndScrollView();
 
             GUILayout.EndHorizontal();
         }
