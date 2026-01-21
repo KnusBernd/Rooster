@@ -11,7 +11,8 @@ namespace Rooster.Services
     /// </summary>
     public static class ModMatcher
     {
-        public const int MIN_MATCH_SCORE = 60;
+        public const int MIN_MATCH_SCORE = 80;
+        public const int AMBIGUITY_THRESHOLD = 5; // If two packages are within 5 points, reject both as ambiguous.
 
         /// <summary>Finds the best matching Thunderstore package for a plugin.</summary>
         public static ThunderstorePackage FindPackage(PluginInfo plugin, List<ThunderstorePackage> packages)
@@ -23,18 +24,40 @@ namespace Rooster.Services
 
             ThunderstorePackage bestMatch = null;
             int bestScore = 0;
+            bool isAmbiguous = false;
 
             foreach (var pkg in packages)
             {
                 MatchReport report = ScoreMatch(pkg, guid, modName);
                 if (report.TotalScore > bestScore)
                 {
+                    // If the new score is significantly better, it's not ambiguous anymore
+                    if (report.TotalScore >= bestScore + AMBIGUITY_THRESHOLD)
+                    {
+                        isAmbiguous = false;
+                    }
+                    else
+                    {
+                        isAmbiguous = true;
+                    }
+
                     bestScore = report.TotalScore;
                     bestMatch = pkg;
                 }
+                else if (report.TotalScore > 0 && Math.Abs(report.TotalScore - bestScore) < AMBIGUITY_THRESHOLD)
+                {
+                    // If we find another package with a very similar score, mark as ambiguous
+                    isAmbiguous = true;
+                }
             }
 
-            if (bestScore >= MIN_MATCH_SCORE)
+            if (isAmbiguous && bestScore >= MIN_MATCH_SCORE)
+            {
+                RoosterPlugin.LogWarning($"Ambiguous Match for {modName}: Best score {bestScore} but another package is too similar. Skipping auto-match.");
+                return null;
+            }
+
+            if (bestMatch != null && bestScore >= MIN_MATCH_SCORE)
             {
                 RoosterPlugin.LogInfo($"Heuristic Match: {modName} ({guid}) -> {bestMatch.FullName} (Score: {bestScore})");
                 return bestMatch;
@@ -92,6 +115,17 @@ namespace Rooster.Services
                     report.AddScore("GUID contains Long Package Name", 65);
                 else
                     report.AddScore("GUID contains Short Package Name", 50);
+            }
+
+            // [Security] Author/Namespace mismatch check
+            // If the local GUID contains a dot or hyphen, it likely uses a namespace (e.g. Author.ModName)
+            if (localGuid.Contains(".") || localGuid.Contains("-"))
+            {
+                if (!nLocalGuid.Contains(nTsNamespace))
+                {
+                    // If the GUID has a namespace but it doesn't match the package author, penalize
+                    report.AddScore("Namespace mismatch penalty", -100);
+                }
             }
 
             HashSet<string> localTokens = Tokenize(localName);

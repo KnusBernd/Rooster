@@ -91,18 +91,5 @@ namespace Rooster.Patches
             }
             return null;
         }
-
-        private static GameObject FindFirstAvailableButton(string[] labels)
-        {
-            foreach (var lbl in labels)
-            {
-                var btn = FindButtonByLabel(lbl);
-                if (btn != null)
-                {
-                    return btn;
-                }
-            }
-            return null;
-        }
     }
 }

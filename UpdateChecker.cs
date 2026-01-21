@@ -37,14 +37,11 @@ namespace Rooster
             return false;
         }
 
-        /// <summary>Runs the update check process as a coroutine.</summary>
         public static IEnumerator CheckForUpdates()
         {
             yield return new WaitForSecondsRealtime(2.0f);
 
             CheckComplete = false;
-
-
 
             Coroutine notificationRoutine = RoosterPlugin.Instance.StartCoroutine(KeepAliveNotification());
 
@@ -89,11 +86,8 @@ namespace Rooster
 
                 ThunderstorePackage matchedPkg = ModMatcher.FindPackage(plugin, CachedPackages);
 
-
-
                 if (matchedPkg != null)
                 {
-
                     MatchedPackages[guid] = matchedPkg;
                     InstalledPackageIds.Add(matchedPkg.FullName);
 
@@ -143,15 +137,15 @@ namespace Rooster
                 {
                     // Ignored
                 }
-                    else if (RoosterConfig.IsModAutoUpdate(guid))
-                    {
-                        RoosterPlugin.LogInfo($"Auto-Update triggered for {modName}");
-                        autoUpdates.Add(updateInfo);
-                    }
-                    else
-                    {
-                        manualUpdates.Add(updateInfo);
-                    }
+                else if (RoosterConfig.IsModAutoUpdate(guid))
+                {
+                    RoosterPlugin.LogInfo($"Auto-Update triggered for {modName}");
+                    autoUpdates.Add(updateInfo);
+                }
+                else
+                {
+                    manualUpdates.Add(updateInfo);
+                }
                 }
             }
 
@@ -194,8 +188,6 @@ namespace Rooster
                 RoosterPlugin.LogError($"Failed to process BepInEx pseudo-plugin: {ex.Message}");
             }
 
-
-
             if (autoUpdates.Count > 0)
             {
                 PendingUpdates.AddRange(autoUpdates);
@@ -210,9 +202,8 @@ namespace Rooster
             CheckComplete = true;
             RoosterPlugin.LogInfo($"Update Check Complete. Found {manualUpdates.Count} manual updates and {autoUpdates.Count} auto updates.");
 
-            if (notificationRoutine != null) RoosterPlugin.Instance.StopCoroutine(notificationRoutine);
-
-
+            if (notificationRoutine != null) 
+                RoosterPlugin.Instance.StopCoroutine(notificationRoutine);
 
             if (manualUpdates.Count > 0)
             {
@@ -220,15 +211,10 @@ namespace Rooster
             }
         }
 
-
-
         private static IEnumerator KeepAliveNotification()
         {
             while (!CheckComplete)
             {
-                if (UserMessageManager.Instance != null && UserMessageManager.Instance.MessageHolderPrefab != null)
-                {
-                }
                 yield return new WaitForSecondsRealtime(1.0f);
             }
         }

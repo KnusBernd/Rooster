@@ -151,7 +151,27 @@ namespace Rooster.Services
 
             try
             {
-                ZipFile.ExtractToDirectory(zipPath, extractPath);
+                using (ZipArchive archive = ZipFile.OpenRead(zipPath))
+                {
+                    foreach (ZipArchiveEntry entry in archive.Entries)
+                    {
+                        string destinationPath = Path.GetFullPath(Path.Combine(extractPath, entry.FullName));
+                        if (!destinationPath.StartsWith(Path.GetFullPath(extractPath), StringComparison.OrdinalIgnoreCase))
+                        {
+                            throw new Exception($"Zip Slip detected! Malicious entry: {entry.FullName}");
+                        }
+
+                        if (entry.FullName.EndsWith("/") || entry.FullName.EndsWith("\\"))
+                        {
+                            Directory.CreateDirectory(destinationPath);
+                        }
+                        else
+                        {
+                            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath));
+                            entry.ExtractToFile(destinationPath, true);
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -186,7 +206,13 @@ namespace Rooster.Services
         {
             if (File.Exists(packageRoot)) return defaultStrategy(packageRoot, true);
 
-            if (Directory.Exists(Path.Combine(packageRoot, "BepInEx"))) return Paths.GameRootPath;
+            if (Directory.Exists(Path.Combine(packageRoot, "BepInEx")))
+            {
+                if (RoosterConfig.AllowGameRootInstallation.Value) return Paths.GameRootPath;
+                RoosterPlugin.LogWarning("[Security] Mod attempted to install to Game Root, but protection is enabled. Defaulting to plugins.");
+                return Paths.PluginPath;
+            }
+
             if (Directory.Exists(Path.Combine(packageRoot, "plugins")) || Directory.Exists(Path.Combine(packageRoot, "config"))) return Paths.BepInExRootPath;
 
             string sourcePatchers = Path.Combine(packageRoot, "patchers");

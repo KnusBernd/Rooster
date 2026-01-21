@@ -18,6 +18,9 @@ namespace Rooster.Services
         public static bool IsCaching = false;
         public static string LastError = null;
 
+        private static string _cachedToken = null;
+        private static bool _hasCheckedToken = false;
+
         public static IEnumerator BuildCache()
         {
             if (IsCaching || IsCacheReady) yield break;
@@ -184,7 +187,7 @@ namespace Rooster.Services
                     if (error != null && (error.Contains("403") || error.Contains("429")))
                     {
                         rateLimitHit = true;
-                        rateLimitError = "GitHub API Rate Limit Exceeded. Please wait 1 hour.";
+                        rateLimitError = "GitHub API Rate Limit Exceeded. Please wait before trying again.";
                     }
 
                     if (pkgs != null) allPackages.AddRange(pkgs);
@@ -204,9 +207,6 @@ namespace Rooster.Services
                 onComplete?.Invoke(allPackages, null);
             }
         }
-
-        private static string _cachedToken = null;
-        private static bool _hasCheckedToken = false;
 
         private static string GetToken()
         {

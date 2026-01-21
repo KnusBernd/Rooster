@@ -18,6 +18,7 @@ namespace Rooster
         public static ConfigEntry<int> GitHubCacheDuration { get; private set; }
         public static ConfigEntry<string> GitHubTokenPath { get; private set; }
         public static ConfigEntry<bool> GitHubWarningAccepted { get; private set; }
+        public static ConfigEntry<bool> AllowGameRootInstallation { get; private set; }
         public static string RoosterConfigPath => System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "Rooster");
 
         public static ConfigEntry<bool> ShowBetaWarning { get; private set; }
@@ -68,6 +69,13 @@ namespace Rooster
                 "WarningAccepted",
                 false,
                 "Whether the user has accepted the GitHub mod download warning."
+            );
+
+            AllowGameRootInstallation = config.Bind(
+                "Security",
+                "AllowGameRootInstallation",
+                false,
+                "If true, mods can install files directly to the Game Root (DANGEROUS). Defaults to false for security."
             );
 
 
