@@ -274,9 +274,33 @@ namespace Rooster.UI
             {
                 if (_isThunderstoreTab)
                 {
-                    _isThunderstoreTab = false;
-                    RefreshList();
-                    UpdateTitle(modal);
+                    if (RoosterConfig.GitHubWarningAccepted.Value)
+                    {
+                        _isThunderstoreTab = false;
+                        RefreshList();
+                        UpdateTitle(modal);
+                    }
+                    else
+                    {
+                        UIHelpers.ShowGitHubWarning(modal,
+                            onAccept: () =>
+                            {
+                                RoosterConfig.GitHubWarningAccepted.Value = true;
+                                RoosterConfig.SaveConfig();
+                                _isThunderstoreTab = false;
+                                ApplyStyling(modal);
+                                RefreshList();
+                            },
+                            onCancel: () =>
+                            {
+                                // User cancelled, so we stick to Thunderstore. 
+                                // Since _isThunderstoreTab is still true, we just need to refresh the UI 
+                                // to clear the disclaimer and show the browser again.
+                                ApplyStyling(modal);
+                                RefreshList();
+                            }
+                        );
+                    }
                 }
             };
 

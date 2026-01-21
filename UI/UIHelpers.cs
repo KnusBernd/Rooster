@@ -708,5 +708,93 @@ namespace Rooster.UI
 
             LayoutRebuilder.ForceRebuildLayoutImmediate(container.GetComponent<RectTransform>());
         }
+
+        public static void ShowGitHubWarning(TabletModalOverlay modal, Action onAccept, Action onCancel)
+        {
+            SetupModal(modal, new Vector2(1000, 700), "GitHub Mods Disclaimer", () =>
+            {
+                onCancel?.Invoke();
+            });
+
+            // Hide OK button container (Back button) as we'll use custom buttons
+            if (modal.okButtonContainer != null) modal.okButtonContainer.gameObject.SetActive(false);
+
+            var container = modal.simpleMessageContainer;
+            var layout = container.gameObject.GetComponent<VerticalLayoutGroup>() ?? container.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.spacing = 30f;
+            layout.padding = new RectOffset(40, 40, 40, 40);
+            layout.childForceExpandHeight = false;
+            layout.childForceExpandWidth = true;
+            layout.childControlHeight = true;
+            layout.childControlWidth = true;
+
+            // Warning Text
+            string warningText = "<color=red><b>WARNING:</b></color> Mods from GitHub are unofficial and <b>unmoderated</b>.\n\n" +
+                                 "They may contain malicious code, break your game, or cause unintended behavior.\n\n" +
+                                 "Only install mods from authors you trust.\n\n" +
+                                 "Do you want to enable GitHub mod browsing?";
+
+            var msgObj = CreateText(container.transform, warningText, 30, TextAnchor.MiddleCenter, Color.white);
+            msgObj.name = "WarningDisclaimerText";
+
+            var msgLe = msgObj.GetComponent<LayoutElement>();
+            if (msgLe)
+            {
+                msgLe.preferredHeight = 350;
+                msgLe.minHeight = 200;
+            }
+
+            // Buttons Row
+            var btnRow = new GameObject("ButtonRow", typeof(RectTransform));
+            btnRow.transform.SetParent(container.transform, false);
+
+            var rowLe = btnRow.AddComponent<LayoutElement>();
+            rowLe.preferredHeight = 100f;
+            rowLe.minHeight = 80f;
+            rowLe.flexibleWidth = 1f;
+
+            var hLayout = btnRow.AddComponent<HorizontalLayoutGroup>();
+            hLayout.childAlignment = TextAnchor.MiddleCenter;
+            hLayout.spacing = 40f;
+            hLayout.childForceExpandWidth = false;
+            hLayout.childForceExpandHeight = false;
+            hLayout.childControlWidth = true;
+            hLayout.childControlHeight = true;
+
+            // Accept Button
+            var acceptBtn = CreateButton(btnRow.transform, modal.okButton, "Accept && Continue", 400, 80);
+            ApplyTheme(acceptBtn, Themes.Danger);
+
+            var lb = acceptBtn.GetComponentInChildren<TabletTextLabel>();
+            if (lb)
+            {
+                var t = lb.GetComponent<Text>();
+                if (t) t.fontSize = 28;
+            }
+
+            acceptBtn.OnClick = new TabletButtonEvent();
+            acceptBtn.OnClick.AddListener((c) => onAccept?.Invoke());
+            acceptBtn.SetDisabled(false);
+            acceptBtn.SetInteractable(true);
+
+            // Cancel Button
+            var cancelBtn = CreateButton(btnRow.transform, modal.okButton, "Cancel", 400, 80);
+            ApplyTheme(cancelBtn, Themes.Neutral);
+
+            var lb2 = cancelBtn.GetComponentInChildren<TabletTextLabel>();
+            if (lb2)
+            {
+                var t = lb2.GetComponent<Text>();
+                if (t) t.fontSize = 24;
+            }
+
+            cancelBtn.OnClick = new TabletButtonEvent();
+            cancelBtn.OnClick.AddListener((c) => onCancel?.Invoke());
+            cancelBtn.SetDisabled(false);
+            cancelBtn.SetInteractable(true);
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(container.GetComponent<RectTransform>());
+        }
     }
 }

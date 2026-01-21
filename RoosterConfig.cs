@@ -17,6 +17,7 @@ namespace Rooster
         public static ConfigEntry<string> GitHubCuratedUrl { get; private set; }
         public static ConfigEntry<int> GitHubCacheDuration { get; private set; }
         public static ConfigEntry<string> GitHubTokenPath { get; private set; }
+        public static ConfigEntry<bool> GitHubWarningAccepted { get; private set; }
         public static string RoosterConfigPath => System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "Rooster");
 
         public static ConfigEntry<bool> ShowBetaWarning { get; private set; }
@@ -60,6 +61,13 @@ namespace Rooster
                 "TokenPath",
                 "github_token.txt",
                 "The path to the GitHub token file. Can be absolute or relative to 'BepInEx/config/Rooster/'."
+            );
+
+            GitHubWarningAccepted = config.Bind(
+                "GitHub",
+                "WarningAccepted",
+                false,
+                "Whether the user has accepted the GitHub mod download warning."
             );
 
 

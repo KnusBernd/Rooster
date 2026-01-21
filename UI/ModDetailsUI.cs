@@ -181,48 +181,81 @@ namespace Rooster.UI
                     tabletBtn.OnClick = new TabletButtonEvent();
                     tabletBtn.OnClick.AddListener((cursor) =>
                     {
-                        label.text = "Installing...";
-                        tabletBtn.SetInteractable(false);
-                        tabletBtn.SetDisabled(true);
-
-                        // Force update visual state
-                        if (tabletBtn.background != null) tabletBtn.background.color = UIHelpers.Themes.Success.Disabled;
-
-                        string url = pkg.Latest.DownloadUrl;
-                        string extension = url.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? ".dll" : ".zip";
-                        string fileName = $"{pkg.Name}{extension}";
-                        string tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), fileName);
-
-                        RoosterPlugin.Instance.StartCoroutine(UpdateDownloader.DownloadFile(url, tempPath, (success, err) =>
+                        Action startInstall = () =>
                         {
-                            if (success)
+                            label.text = "Installing...";
+                            tabletBtn.SetInteractable(false);
+                            tabletBtn.SetDisabled(true);
+
+                            // Force update visual state
+                            if (tabletBtn.background != null) tabletBtn.background.color = UIHelpers.Themes.Success.Disabled;
+
+                            string url = pkg.Latest.DownloadUrl;
+                            string extension = url.EndsWith(".dll", StringComparison.OrdinalIgnoreCase) ? ".dll" : ".zip";
+                            string fileName = $"{pkg.Name}{extension}";
+                            string tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), fileName);
+
+                            RoosterPlugin.Instance.StartCoroutine(UpdateDownloader.DownloadFile(url, tempPath, (success, err) =>
                             {
-                                UpdateInstaller.InstallPackage(tempPath, pkg, (installSuccess, installErr) =>
+                                if (success)
                                 {
-                                    if (installSuccess)
+                                    UpdateInstaller.InstallPackage(tempPath, pkg, (installSuccess, installErr) =>
                                     {
-                                        label.text = "Install Pending (Restart required)";
-                                        UpdateChecker.PendingInstalls.Add(pkg.FullName);
+                                        if (installSuccess)
+                                        {
+                                            label.text = "Install Pending (Restart required)";
+                                            UpdateChecker.PendingInstalls.Add(pkg.FullName);
 
-                                        // Register with Loop Preventer
-                                        UpdateLoopPreventer.RegisterPendingInstall(pkg.Name, pkg.Latest.VersionNumber);
+                                            // Register with Loop Preventer
+                                            UpdateLoopPreventer.RegisterPendingInstall(pkg.Name, pkg.Latest.VersionNumber);
 
-                                        UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Warning);
-                                    }
-                                    else
-                                    {
-                                        label.text = "Error";
-                                        RoosterPlugin.LogError($"Install error: {installErr}");
-                                    }
-                                });
-                            }
-                            else
-                            {
-                                label.text = "Failed";
-                                tabletBtn.SetInteractable(true);
-                                RoosterPlugin.LogError($"Download error: {err}");
-                            }
-                        }));
+                                            UIHelpers.ApplyTheme(tabletBtn, UIHelpers.Themes.Warning);
+                                        }
+                                        else
+                                        {
+                                            label.text = "Error";
+                                            RoosterPlugin.LogError($"Install error: {installErr}");
+                                            tabletBtn.SetInteractable(true);
+                                            tabletBtn.SetDisabled(false);
+                                        }
+                                    });
+                                }
+                                else
+                                {
+                                    label.text = "Failed";
+                                    tabletBtn.SetInteractable(true);
+                                    tabletBtn.SetDisabled(false);
+                                    RoosterPlugin.LogError($"Download error: {err}");
+                                }
+                            }));
+                        };
+
+                        // Check for GitHub disclaimer if downloading from GitHub
+                        bool isGitHub = pkg.Latest.DownloadUrl.Contains("github.com") || pkg.Latest.DownloadUrl.Contains("githubusercontent.com");
+                        if (isGitHub && !RoosterConfig.GitHubWarningAccepted.Value)
+                        {
+                            UIHelpers.ShowGitHubWarning(
+                                Tablet.clickEventReceiver.modalOverlay,
+                                onAccept: () =>
+                                {
+                                    RoosterConfig.GitHubWarningAccepted.Value = true;
+                                    RoosterConfig.SaveConfig();
+                                    // Refresh details UI to clear disclaimer and proceed
+                                    ShowDetails(pkg);
+                                    // Optionally we could just call startInstall() here, 
+                                    // but ShowDetails(pkg) is safer to reset UI.
+                                },
+                                onCancel: () =>
+                                {
+                                    // Just go back to details
+                                    ShowDetails(pkg);
+                                }
+                            );
+                        }
+                        else
+                        {
+                            startInstall();
+                        }
                     });
 
                     tabletBtn.SetInteractable(true);
