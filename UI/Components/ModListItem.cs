@@ -77,6 +77,7 @@ namespace Rooster.UI.Components
             iconObj.transform.SetParent(btnObj.transform, false);
             iconObj.layer = btnObj.layer;
 
+            var rect = iconObj.GetComponent<RectTransform>();
             rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 0.5f);
             rect.sizeDelta = new Vector2(75, 75);
             rect.anchoredPosition = new Vector2(10, 0);

@@ -77,14 +77,12 @@ namespace Rooster.UI
             var headerRt = headerObj.GetComponent<RectTransform>();
             headerRt.sizeDelta = new Vector2(192, 192);
             var headerImg = headerObj.GetComponent<Image>();
-            headerImg.sprite = UIHelpers.GetWhiteSprite();
             headerImg.color = new Color(1, 1, 1, 0.1f);
 
             IconService.Instance.GetIcon(pkg, (sprite) => {
-                if (headerImg != null && sprite != null) {
-                    headerImg.sprite = sprite;
-                    headerImg.color = Color.white;
-                }
+                if (headerImg == null || sprite == null) return;
+                headerImg.sprite = sprite;
+                headerImg.color = Color.white;
             });
 
             // Title & Author
