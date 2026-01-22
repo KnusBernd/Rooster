@@ -133,8 +133,8 @@ namespace Rooster.UI
                         bool isGitHub = pkg.Categories != null && pkg.Categories.Contains("GitHub");
                         if (!isGitHub)
                         {
-                            string author = pkg.FullName?.Split('-')[0] ?? "Unknown";
-                            targetUrl = $"https://thunderstore.io/c/ultimate-chicken-horse/p/{author}/{pkg.Name}/";
+                            string tsAuthor = pkg.FullName?.Split('-')[0] ?? "Unknown";
+                            targetUrl = $"https://thunderstore.io/c/ultimate-chicken-horse/p/{tsAuthor}/{pkg.Name}/";
                         }
 
                         Application.OpenURL(targetUrl);
