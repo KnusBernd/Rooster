@@ -69,6 +69,23 @@ namespace Rooster.UI
             vLayout.childAlignment = TextAnchor.UpperCenter;
             vLayout.childForceExpandWidth = true;
             vLayout.childForceExpandHeight = false;
+            vLayout.childControlHeight = true;
+
+            // Header Section (Icon + Name)
+            var headerObj = new GameObject("Header", typeof(RectTransform), typeof(Image));
+            headerObj.transform.SetParent(_detailsContainer.transform, false);
+            var headerRt = headerObj.GetComponent<RectTransform>();
+            headerRt.sizeDelta = new Vector2(192, 192);
+            var headerImg = headerObj.GetComponent<Image>();
+            headerImg.sprite = UIHelpers.GetWhiteSprite();
+            headerImg.color = new Color(1, 1, 1, 0.1f);
+
+            IconService.Instance.GetIcon(pkg, (sprite) => {
+                if (headerImg != null && sprite != null) {
+                    headerImg.sprite = sprite;
+                    headerImg.color = Color.white;
+                }
+            });
 
             // Title & Author
             UIHelpers.AddText(_detailsContainer.transform, pkg.Name.Replace('_', ' '), 40, true, Color.white);

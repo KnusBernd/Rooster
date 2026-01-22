@@ -67,6 +67,7 @@ namespace Rooster.Services
                 string dlUrl = latestNode["download_url"];
                 string websiteUrl = latestNode["website_url"];
                 string description = latestNode["description"];
+                string iconUrl = latestNode["icon"];
 
                 string finalDate = (!string.IsNullOrEmpty(dateUpdated)) ? dateUpdated : dateCreated;
 
@@ -92,6 +93,7 @@ namespace Rooster.Services
                         FullName = fullName ?? $"{owner}-{pkgName}",
                         WebsiteUrl = websiteUrl ?? "",
                         Description = description ?? "",
+                        IconUrl = iconUrl ?? "",
                         DateUpdated = finalDate ?? "",
                         Latest = new ThunderstoreVersion
                         {

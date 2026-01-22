@@ -73,6 +73,12 @@
     <Reference Include="UnityEngine.UnityWebRequestModule">
       <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.UnityWebRequestModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestTextureModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.UnityWebRequestTextureModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.JSONSerializeModule">
         <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.JSONSerializeModule.dll</HintPath>
       </Reference>
@@ -109,6 +115,7 @@
     <Compile Include="Services\VersionComparer.cs" />
     <Compile Include="Services\UpdateLoopPreventer.cs" />
     <Compile Include="UI\UIHelpers.cs" />
+    <Compile Include="Services\IconService.cs" />
     <Compile Include="UI\ModDetailsUI.cs" />
     <Compile Include="UI\ModBrowserUI.cs" />
     <Compile Include="UI\Components\ModListItem.cs" />

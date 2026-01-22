@@ -11,6 +11,7 @@ namespace Rooster.Models
         public string Description;
         public string WebsiteUrl;
         public string DateUpdated;
+        public string IconUrl;
         public string SecondaryAuthor; // Added for dual author display (forks)
         public ThunderstoreVersion Latest;
         public ThunderstoreVersion Oldest;
@@ -25,6 +26,7 @@ namespace Rooster.Models
             json["website_url"] = WebsiteUrl;
             json["description"] = Description;
             json["date_updated"] = DateUpdated;
+            json["icon_url"] = IconUrl;
             json["secondary_author"] = SecondaryAuthor;
             if (Latest != null) json["latest"] = Latest.ToJson();
             if (Oldest != null) json["oldest"] = Oldest.ToJson();
@@ -54,6 +56,7 @@ namespace Rooster.Models
                 Description = node["description"],
                 WebsiteUrl = node["website_url"],
                 DateUpdated = node["date_updated"],
+                IconUrl = node["icon_url"],
                 SecondaryAuthor = node["secondary_author"],
                 Latest = ThunderstoreVersion.FromJson(node["latest"]),
                 Oldest = ThunderstoreVersion.FromJson(node["oldest"])

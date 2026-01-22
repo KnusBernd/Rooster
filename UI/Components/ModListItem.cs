@@ -20,6 +20,7 @@ namespace Rooster.UI.Components
             btnObj.name = "Pkg_" + pkg.Name;
 
             SetupLabel(btnObj, pkg);
+            SetupIcon(btnObj, pkg);
             SetupButton(btnObj, template, pkg, onClick);
             SetupLayout(btnObj);
 
@@ -52,7 +53,7 @@ namespace Rooster.UI.Components
                                     ? string.Join(", ", pkg.Categories)
                                     : "Mod";
 
-            label.text = $"{pkg.Name.Replace('_', ' ')} v{pkg.Latest.VersionNumber}\n<i><size=18>by {author} | {categoryStr}</size></i>";
+            label.text = $"<size=22>{pkg.Name.Replace('_', ' ')} v{pkg.Latest.VersionNumber}</size>\n<i><size=18>by {author} | {categoryStr}</size></i>";
             label.labelType = TabletTextLabel.LabelType.SmallText;
 
             var uiText = label.GetComponent<Text>();
@@ -60,7 +61,44 @@ namespace Rooster.UI.Components
             {
                 uiText.supportRichText = true;
                 uiText.verticalOverflow = VerticalWrapMode.Overflow;
+                uiText.alignment = TextAnchor.MiddleLeft;
             }
+
+            var labelRect = label.GetComponent<RectTransform>();
+            if (labelRect != null)
+            {
+                labelRect.anchorMin = new Vector2(0, 0);
+                labelRect.anchorMax = new Vector2(1, 1);
+                labelRect.offsetMin = new Vector2(95, 0); // Room for larger icon
+                labelRect.offsetMax = new Vector2(-10, 0);
+            }
+        }
+
+        private static void SetupIcon(GameObject btnObj, ThunderstorePackage pkg)
+        {
+            var iconObj = new GameObject("ModIcon", typeof(RectTransform), typeof(Image));
+            iconObj.transform.SetParent(btnObj.transform, false);
+            iconObj.layer = btnObj.layer;
+
+            var rect = iconObj.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0, 0.5f);
+            rect.anchorMax = new Vector2(0, 0.5f);
+            rect.pivot = new Vector2(0, 0.5f);
+            rect.sizeDelta = new Vector2(75, 75);
+            rect.anchoredPosition = new Vector2(10, 0);
+
+            var img = iconObj.GetComponent<Image>();
+            img.sprite = UIHelpers.GetWhiteSprite();
+            img.color = new Color(1, 1, 1, 0.1f); // Subtle placeholder
+
+            IconService.Instance.GetIcon(pkg, (sprite) =>
+            {
+                if (img != null && sprite != null)
+                {
+                    img.sprite = sprite;
+                    img.color = Color.white;
+                }
+            });
         }
 
         private static void SetupButton(GameObject btnObj, TabletButton template, ThunderstorePackage pkg, Action<ThunderstorePackage> onClick)
