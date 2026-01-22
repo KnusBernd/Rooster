@@ -435,7 +435,19 @@ namespace Rooster.UI
             {
                 UnityEngine.Object.Destroy(_detailsContainer);
                 _detailsContainer = null;
-            }
+        }
+
+        private static string FormatNumber(int num)
+        {
+            if (num >= 1000000) return (num / 1000000f).ToString("F1") + "M";
+            if (num >= 1000) return (num / 1000f).ToString("F1") + "k";
+            return num.ToString();
+        }
+
+        private static string FormatSize(long bytes)
+        {
+            float mb = bytes / (1024f * 1024f);
+            return mb.ToString("F1") + " MB";
         }
     }
 }
