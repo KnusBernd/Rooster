@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <GameDir Condition="'$(GameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Ultimate Chicken Horse</GameDir>
+  </PropertyGroup>
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{4A292850-2E24-4B7C-8212-D07E59D65E87}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Rooster</RootNamespace>
+    <AssemblyName>Rooster</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0</AssemblyVersion>
+    <FileVersion>1.0.0</FileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>$(GameDir)\BepInEx\core\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="BepInEx">
+      <HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath>
+    </Reference>
+    <Reference Include="JsonDotNet">
+        <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.JSONSerializeModule.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Xml" />
+    <Reference Include="UnityEngine">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.UI.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.UnityWebRequestModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestTextureModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.UnityWebRequestTextureModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.JSONSerializeModule">
+        <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.JSONSerializeModule.dll</HintPath>
+      </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(GameDir)\UltimateChickenHorse_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Plugin.cs" />
+
+    <Compile Include="RoosterConfig.cs" />
+    <Compile Include="UpdateChecker.cs" />
+    <Compile Include="Services\UpdateDownloader.cs" />
+    <Compile Include="Services\UpdateInstaller.cs" />
+    <Compile Include="UI\ModMenuUI.cs" />
+    <Compile Include="UI\ModSettingsUI.cs" />
+    <Compile Include="UI\UpdateMenuUI.cs" />
+    <Compile Include="Patches\MainMenuPopupPatch.cs" />
+    <Compile Include="Patches\MainMenuButtonPatch.cs" />
+    <Compile Include="Patches\PickCursorScrollPatch.cs" />
+    <Compile Include="Models\ThunderstorePackage.cs" />
+    <Compile Include="Models\RoosterCache.cs" />
+    <Compile Include="Models\ThunderstoreVersion.cs" />
+    <Compile Include="Models\ModUpdateInfo.cs" />
+    <Compile Include="Services\ThunderstoreApi.cs" />
+    <Compile Include="Services\GitHubApi.cs" />
+    <Compile Include="Services\SecurityService.cs" />
+    <Compile Include="Services\NetworkHelper.cs" />
+    <Compile Include="Services\SimpleJSON.cs" />
+    <Compile Include="Services\ModMatcher.cs" />
+    <Compile Include="Services\ModUninstaller.cs" />
+    <Compile Include="Services\VersionComparer.cs" />
+    <Compile Include="Services\UpdateLoopPreventer.cs" />
+    <Compile Include="UI\UIHelpers.cs" />
+    <Compile Include="Services\IconService.cs" />
+    <Compile Include="UI\ModDetailsUI.cs" />
+    <Compile Include="UI\ModBrowserUI.cs" />
+    <Compile Include="UI\Components\ModListItem.cs" />
+    <Compile Include="UI\Components\BrowserTabSystem.cs" />
+    <Compile Include="UI\DeveloperUI.cs" />
+    <Compile Include="UI\PopupController.cs" />
+    <Compile Include="Models\MatchReport.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="if not exist &quot;$(GameDir)\BepInEx\plugins\Rooster&quot; mkdir &quot;$(GameDir)\BepInEx\plugins\Rooster&quot;" />
+    <Exec Command="copy /Y &quot;$(TargetDir)$(TargetName).dll&quot; &quot;$(GameDir)\BepInEx\plugins\$(TargetName).dll&quot;" />
+
+  </Target>
+</Project>
