@@ -107,8 +107,8 @@ namespace Rooster.UI.Components
             var trText = topRight.GetComponent<Text>();
             trText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
             trText.alignment = TextAnchor.UpperRight;
-            trText.fontSize = 16;
-            trText.color = new Color(0.9f, 0.9f, 0.9f, 0.8f);
+            trText.fontSize = 18;
+            trText.color = Color.white;
             trText.supportRichText = true;
             trText.text = $"★ {pkg.Likes}  |  ↓ {FormatNumber(pkg.Downloads)}";
 
@@ -123,8 +123,8 @@ namespace Rooster.UI.Components
             var brText = bottomRight.GetComponent<Text>();
             brText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
             brText.alignment = TextAnchor.LowerRight;
-            brText.fontSize = 14;
-            brText.color = new Color(0.7f, 0.7f, 0.7f, 0.6f);
+            brText.fontSize = 16;
+            brText.color = new Color(1f, 1f, 1f, 0.9f);
             brText.supportRichText = true;
 
             string sizeStr = pkg.Latest != null ? FormatSize(pkg.Latest.FileSize) : "?? MB";

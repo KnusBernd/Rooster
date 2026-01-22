@@ -69,7 +69,10 @@ namespace Rooster.Services
                 string description = latestNode["description"];
                 string iconUrl = latestNode["icon"];
                 int likes = pkgNode["rating_score"].AsInt;
-                int downloads = pkgNode["downloads"].AsInt;
+                
+                int downloads = 0;
+                foreach (JSONNode v in versionsNode) downloads += v["downloads"].AsInt;
+
                 long fileSize = latestNode["file_size"].AsLong;
 
                 string finalDate = (!string.IsNullOrEmpty(dateUpdated)) ? dateUpdated : dateCreated;
