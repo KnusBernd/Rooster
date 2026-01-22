@@ -127,7 +127,17 @@ namespace Rooster.UI
                     viewBtn.OnClick = new TabletButtonEvent();
                     viewBtn.OnClick.AddListener((cursor) =>
                     {
-                        Application.OpenURL(pkg.WebsiteUrl);
+                        string targetUrl = pkg.WebsiteUrl;
+
+                        // For Thunderstore mods, construct the official package page URL
+                        bool isGitHub = pkg.Categories != null && pkg.Categories.Contains("GitHub");
+                        if (!isGitHub)
+                        {
+                            string author = pkg.FullName?.Split('-')[0] ?? "Unknown";
+                            targetUrl = $"https://thunderstore.io/c/ultimate-chicken-horse/p/{author}/{pkg.Name}/";
+                        }
+
+                        Application.OpenURL(targetUrl);
                     });
                     viewBtn.SetInteractable(true);
                     viewBtn.SetDisabled(false);
