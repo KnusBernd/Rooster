@@ -9,9 +9,7 @@ using Rooster.Models;
 
 namespace Rooster.Services
 {
-    /// <summary>
-    /// Handles asynchronous icon loading with memory and disk caching.
-    /// </summary>
+    /// <summary> Handles icon loading with memory and disk caching. </summary>
     public class IconService : MonoBehaviour
     {
         private static IconService _instance;
@@ -35,10 +33,7 @@ namespace Rooster.Services
         private void Awake()
         {
             _cachePath = Path.Combine(BepInEx.Paths.PluginPath, "Rooster", "Cache", "Icons");
-            if (!Directory.Exists(_cachePath))
-            {
-                Directory.CreateDirectory(_cachePath);
-            }
+            if (!Directory.Exists(_cachePath)) Directory.CreateDirectory(_cachePath);
         }
 
         public void GetIcon(ThunderstorePackage pkg, Action<Sprite> callback)
@@ -49,24 +44,15 @@ namespace Rooster.Services
                 return;
             }
 
-            // 1. Memory Cache
-            if (_memoryCache.TryGetValue(pkg.IconUrl, out var cachedSprite))
-            {
-                callback?.Invoke(cachedSprite);
-                return;
-            }
+            if (_memoryCache.TryGetValue(pkg.IconUrl, out var cachedSprite)) { callback?.Invoke(cachedSprite); return; }
 
-            // 2. Disk Cache
-            string fileName = pkg.FullName + ".png";
-            string localPath = Path.Combine(_cachePath, fileName);
-
+            string localPath = Path.Combine(_cachePath, pkg.FullName + ".png");
             if (File.Exists(localPath))
             {
                 StartCoroutine(LoadFromDisk(localPath, pkg.IconUrl, callback));
                 return;
             }
 
-            // 3. Download
             StartCoroutine(DownloadIcon(pkg.IconUrl, localPath, callback));
         }
 
@@ -96,7 +82,6 @@ namespace Rooster.Services
 
                 if (www.result != UnityWebRequest.Result.Success)
                 {
-                    RoosterPlugin.LogError($"Failed to download icon from {url}: {www.error}");
                     callback?.Invoke(null);
                 }
                 else
@@ -104,25 +89,18 @@ namespace Rooster.Services
                     Texture2D tex = DownloadHandlerTexture.GetContent(www);
                     if (tex != null)
                     {
-                        // Save to disk
                         try
                         {
                             byte[] pngData = ImageConversion.EncodeToPNG(tex);
                             File.WriteAllBytes(localPath, pngData);
                         }
-                        catch (Exception ex)
-                        {
-                            RoosterPlugin.LogWarning($"Failed to save icon to disk cache: {ex.Message}");
-                        }
+                        catch { }
 
                         Sprite sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
                         _memoryCache[url] = sprite;
                         callback?.Invoke(sprite);
                     }
-                    else
-                    {
-                        callback?.Invoke(null);
-                    }
+                    else callback?.Invoke(null);
                 }
             }
         }

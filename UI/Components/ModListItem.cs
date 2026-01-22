@@ -38,10 +38,7 @@ namespace Rooster.UI.Components
             if (!string.IsNullOrEmpty(pkg.FullName))
             {
                 int hyphenIdx = pkg.FullName.IndexOf('-');
-                if (hyphenIdx > 0)
-                {
-                    author = pkg.FullName.Substring(0, hyphenIdx);
-                }
+                if (hyphenIdx > 0) author = pkg.FullName.Substring(0, hyphenIdx);
             }
 
             if (!string.IsNullOrEmpty(pkg.SecondaryAuthor))
@@ -67,9 +64,9 @@ namespace Rooster.UI.Components
             var labelRect = label.GetComponent<RectTransform>();
             if (labelRect != null)
             {
-                labelRect.anchorMin = new Vector2(0, 0);
-                labelRect.anchorMax = new Vector2(1, 1);
-                labelRect.offsetMin = new Vector2(95, 0); // Room for larger icon
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = new Vector2(95, 0); 
                 labelRect.offsetMax = new Vector2(-10, 0);
             }
         }
@@ -80,24 +77,18 @@ namespace Rooster.UI.Components
             iconObj.transform.SetParent(btnObj.transform, false);
             iconObj.layer = btnObj.layer;
 
-            var rect = iconObj.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0, 0.5f);
-            rect.anchorMax = new Vector2(0, 0.5f);
-            rect.pivot = new Vector2(0, 0.5f);
+            rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 0.5f);
             rect.sizeDelta = new Vector2(75, 75);
             rect.anchoredPosition = new Vector2(10, 0);
 
             var img = iconObj.GetComponent<Image>();
-            img.sprite = UIHelpers.GetWhiteSprite();
-            img.color = new Color(1, 1, 1, 0.1f); // Subtle placeholder
+            img.color = new Color(1, 1, 1, 0.1f);
 
             IconService.Instance.GetIcon(pkg, (sprite) =>
             {
-                if (img != null && sprite != null)
-                {
-                    img.sprite = sprite;
-                    img.color = Color.white;
-                }
+                if (img == null || sprite == null) return;
+                img.sprite = sprite;
+                img.color = Color.white;
             });
         }
 
