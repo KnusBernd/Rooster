@@ -143,6 +143,11 @@ namespace Rooster.UI.Components
 
         private static string FormatSize(long bytes)
         {
+            if (bytes < 1024 * 100) // Less than 100 KB
+            {
+                float kb = bytes / 1024f;
+                return kb.ToString("F1") + " KB";
+            }
             float mb = bytes / (1024f * 1024f);
             return mb.ToString("F1") + " MB";
         }
