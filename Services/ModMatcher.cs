@@ -11,7 +11,7 @@ namespace Rooster.Services
     /// </summary>
     public static class ModMatcher
     {
-        public const int MIN_MATCH_SCORE = 80;
+        public const int MIN_MATCH_SCORE = 60;
         public const int AMBIGUITY_THRESHOLD = 5; // If two packages are within 5 points, reject both as ambiguous.
 
         /// <summary>Finds the best matching Thunderstore package for a plugin.</summary>

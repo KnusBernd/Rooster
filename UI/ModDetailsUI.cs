@@ -78,6 +78,7 @@ namespace Rooster.UI
             headerRt.sizeDelta = new Vector2(192, 192);
             var headerImg = headerObj.GetComponent<Image>();
             headerImg.color = new Color(1, 1, 1, 0.1f);
+            headerImg.preserveAspect = true;
 
             IconService.Instance.GetIcon(pkg, (sprite) => {
                 if (headerImg == null || sprite == null) return;
