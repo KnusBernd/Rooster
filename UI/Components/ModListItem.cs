@@ -21,6 +21,7 @@ namespace Rooster.UI.Components
 
             SetupLabel(btnObj, pkg);
             SetupIcon(btnObj, pkg);
+            SetupCornerStats(btnObj, pkg);
             SetupButton(btnObj, template, pkg, onClick);
             SetupLayout(btnObj);
 
@@ -91,6 +92,59 @@ namespace Rooster.UI.Components
                 img.sprite = sprite;
                 img.color = Color.white;
             });
+        }
+
+        private static void SetupCornerStats(GameObject btnObj, ThunderstorePackage pkg)
+        {
+            // Top Right: ★ {likes} / ↓ {downloads}
+            var topRight = new GameObject("StatsTop", typeof(RectTransform), typeof(Text));
+            topRight.transform.SetParent(btnObj.transform, false);
+            var trRt = topRight.GetComponent<RectTransform>();
+            trRt.anchorMin = trRt.anchorMax = trRt.pivot = new Vector2(1, 1);
+            trRt.anchoredPosition = new Vector2(-15, -10);
+            trRt.sizeDelta = new Vector2(200, 30);
+
+            var trText = topRight.GetComponent<Text>();
+            trText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            trText.alignment = TextAnchor.UpperRight;
+            trText.fontSize = 16;
+            trText.color = new Color(0.9f, 0.9f, 0.9f, 0.8f);
+            trText.supportRichText = true;
+            trText.text = $"★ {pkg.Likes}  |  ↓ {FormatNumber(pkg.Downloads)}";
+
+            // Bottom Right: {size} MB / updated: {date}
+            var bottomRight = new GameObject("StatsBottom", typeof(RectTransform), typeof(Text));
+            bottomRight.transform.SetParent(btnObj.transform, false);
+            var brRt = bottomRight.GetComponent<RectTransform>();
+            brRt.anchorMin = brRt.anchorMax = brRt.pivot = new Vector2(1, 0);
+            brRt.anchoredPosition = new Vector2(-15, 10);
+            brRt.sizeDelta = new Vector2(300, 30);
+
+            var brText = bottomRight.GetComponent<Text>();
+            brText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            brText.alignment = TextAnchor.LowerRight;
+            brText.fontSize = 14;
+            brText.color = new Color(0.7f, 0.7f, 0.7f, 0.6f);
+            brText.supportRichText = true;
+
+            string sizeStr = pkg.Latest != null ? FormatSize(pkg.Latest.FileSize) : "?? MB";
+            string dateStr = pkg.DateUpdated;
+            if (DateTime.TryParse(dateStr, out var dt)) dateStr = dt.ToString("yyyy-MM-dd");
+
+            brText.text = $"{sizeStr}  /  <i>updated: {dateStr}</i>";
+        }
+
+        private static string FormatNumber(int num)
+        {
+            if (num >= 1000000) return (num / 1000000f).ToString("F1") + "M";
+            if (num >= 1000) return (num / 1000f).ToString("F1") + "k";
+            return num.ToString();
+        }
+
+        private static string FormatSize(long bytes)
+        {
+            float mb = bytes / (1024f * 1024f);
+            return mb.ToString("F1") + " MB";
         }
 
         private static void SetupButton(GameObject btnObj, TabletButton template, ThunderstorePackage pkg, Action<ThunderstorePackage> onClick)

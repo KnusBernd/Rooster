@@ -7,6 +7,7 @@ namespace Rooster.Models
     {
         public string VersionNumber;
         public string DownloadUrl;
+        public long FileSize;
         public System.Collections.Generic.List<string> Dependencies;
 
         public Rooster.Services.JSONNode ToJson()
@@ -14,6 +15,7 @@ namespace Rooster.Models
             var node = new Rooster.Services.JSONObject();
             node["version_number"] = VersionNumber;
             node["download_url"] = DownloadUrl;
+            node["file_size"] = FileSize;
             if (Dependencies != null)
             {
                 var arr = new Rooster.Services.JSONArray();
@@ -29,7 +31,8 @@ namespace Rooster.Models
             var ver = new ThunderstoreVersion
             {
                 VersionNumber = node["version_number"],
-                DownloadUrl = node["download_url"]
+                DownloadUrl = node["download_url"],
+                FileSize = node["file_size"].AsLong
             };
             var deps = node["dependencies"].AsArray;
             if (deps != null)

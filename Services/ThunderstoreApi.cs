@@ -68,6 +68,9 @@ namespace Rooster.Services
                 string websiteUrl = latestNode["website_url"];
                 string description = latestNode["description"];
                 string iconUrl = latestNode["icon"];
+                int likes = pkgNode["rating_score"].AsInt;
+                int downloads = pkgNode["downloads"].AsInt;
+                long fileSize = latestNode["file_size"].AsLong;
 
                 string finalDate = (!string.IsNullOrEmpty(dateUpdated)) ? dateUpdated : dateCreated;
 
@@ -95,16 +98,20 @@ namespace Rooster.Services
                         Description = description ?? "",
                         IconUrl = iconUrl ?? "",
                         DateUpdated = finalDate ?? "",
+                        Likes = likes,
+                        Downloads = downloads,
                         Latest = new ThunderstoreVersion
                         {
                             VersionNumber = verNum,
                             DownloadUrl = dlUrl ?? "",
+                            FileSize = fileSize,
                             Dependencies = dependencies
                         },
                         Oldest = new ThunderstoreVersion
                         {
                             VersionNumber = oldestNode["version_number"] ?? verNum,
                             DownloadUrl = oldestNode["download_url"] ?? dlUrl ?? "",
+                            FileSize = oldestNode["file_size"].AsLong
                         },
                         Categories = categories
                     });

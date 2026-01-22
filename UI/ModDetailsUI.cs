@@ -96,6 +96,11 @@ namespace Rooster.UI
             }
             UIHelpers.AddText(_detailsContainer.transform, authorText, 24, false, new Color(0.8f, 0.8f, 0.8f));
 
+            // Stats Row
+            string sizeStr = pkg.Latest != null ? FormatSize(pkg.Latest.FileSize) : "?? MB";
+            string statsText = $"★ {pkg.Likes}    ↓ {FormatNumber(pkg.Downloads)}    💾 {sizeStr}";
+            UIHelpers.AddText(_detailsContainer.transform, statsText, 20, true, new Color(0.6f, 0.8f, 1f));
+
             // Description
             UIHelpers.AddText(_detailsContainer.transform, pkg.Description, 20, false, Color.white);
 
