@@ -435,6 +435,7 @@ namespace Rooster.UI
             {
                 UnityEngine.Object.Destroy(_detailsContainer);
                 _detailsContainer = null;
+            }
         }
 
         private static string FormatNumber(int num)
