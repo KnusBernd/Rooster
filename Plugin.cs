@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Rooster
 {
-    [BepInPlugin("de.knusbernd.rooster", "Rooster", "1.0.1")]
+    [BepInPlugin("de.knusbernd.rooster", "Rooster", "1.0.2")]
     public class RoosterPlugin : BaseUnityPlugin
     {
         internal static RoosterPlugin Instance { get; private set; }

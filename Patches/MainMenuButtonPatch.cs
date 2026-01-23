@@ -14,12 +14,12 @@ namespace Rooster.Patches
         [HarmonyPostfix]
         public static void Postfix()
         {
-            GameObject existingBtn = FindButtonByLabel("Mods");
+            GameObject existingBtn = FindButton("Mods");
             if (existingBtn != null) return;
 
             try
             {
-                GameObject optionsButton = FindButtonByLabel("Options");
+                GameObject optionsButton = FindButton("Options");
                 if (optionsButton == null)
                 {
                     RoosterPlugin.LogError("Could not find a suitable button to clone for Mods");
@@ -56,7 +56,7 @@ namespace Rooster.Patches
                     iconImage2.transform.localRotation = Quaternion.Euler(0f, 0f, -22.5f);
                 }
 
-                GameObject quitButton = FindButtonByLabel("Quit");
+                GameObject quitButton = FindButton("Quit");
                 if (quitButton != null)
                 {
                     int quitIndex = quitButton.transform.GetSiblingIndex();
@@ -79,12 +79,17 @@ namespace Rooster.Patches
             }
         }
 
-        private static GameObject FindButtonByLabel(string label)
+        private static GameObject FindButton(string identifier)
         {
             foreach (var btn in UnityEngine.Object.FindObjectsOfType<TabletButton>())
             {
+                if (btn.name.Equals(identifier, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return btn.gameObject;
+                }
+
                 var txt = btn.gameObject.GetComponentInChildren<TabletTextLabel>();
-                if (txt != null && txt.text != null && txt.text.Equals(label, System.StringComparison.OrdinalIgnoreCase))
+                if (txt != null && txt.text != null && txt.text.Equals(identifier, System.StringComparison.OrdinalIgnoreCase))
                 {
                     return btn.gameObject;
                 }
