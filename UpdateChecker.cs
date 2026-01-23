@@ -272,15 +272,22 @@ namespace Rooster
                     UpdateInstaller.InstallMod(zipPath, update.PluginInfo, new ThunderstorePackage
                     {
                         Name = update.ModName,
-                        FullName = update.FullName,
-                        Description = update.Description,
-                        WebsiteUrl = update.WebsiteUrl,
+                        FullName = update.FullName ?? update.ModName,
+                        Description = update.Description ?? "",
+                        WebsiteUrl = update.WebsiteUrl ?? "",
                         Latest = new ThunderstoreVersion { VersionNumber = update.Version }
                     }, (success, error) =>
                     {
                         try
                         {
-                            if (success) UpdateLoopPreventer.RegisterPendingInstall(update.PluginInfo.Metadata.GUID, update.Version);
+                            if (success) 
+                            {
+                                string installGuid = update.GUID ?? (update.PluginInfo?.Metadata.GUID);
+                                if (!string.IsNullOrEmpty(installGuid))
+                                {
+                                    UpdateLoopPreventer.RegisterPendingInstall(installGuid, update.Version);
+                                }
+                            }
 
                             installSuccess = success;
                             if (!success) onStatusUpdate?.Invoke(update, "Install Failed");

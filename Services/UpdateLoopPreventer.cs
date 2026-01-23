@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using BepInEx;
+using BepInEx.Bootstrap;
 using Rooster.Models;
 using UnityEngine;
 using Rooster.Services;
@@ -108,6 +109,18 @@ namespace Rooster.Services
 
                 string guid = parts[0];
                 string expectedVer = parts[1];
+
+                // Special handling for BepInEx engine verification
+                if (guid.Equals("bepinex", StringComparison.OrdinalIgnoreCase) || guid.Equals("BepInEx-BepInExPack", StringComparison.OrdinalIgnoreCase))
+                {
+                    string currentBepVer = GetBepInExVersion();
+                    if (currentBepVer != expectedVer)
+                    {
+                        RoosterPlugin.LogWarning($"[UpdateLoopPreventer] Update Failed for BepInEx! Expected: {expectedVer}, Found: {currentBepVer}. Ignoring {expectedVer}.");
+                        newIgnored.Add($"{guid}|{expectedVer}");
+                    }
+                    continue;
+                }
 
                 if (plugins.TryGetValue(guid, out var info))
                 {
@@ -259,6 +272,21 @@ namespace Rooster.Services
                 }
             }
             return false;
+        }
+
+        private static string GetBepInExVersion()
+        {
+            try
+            {
+                string bepVersion = typeof(Chainloader).Assembly.GetName().Version.ToString();
+                var vParts = bepVersion.Split('.');
+                if (vParts.Length == 4 && int.TryParse(vParts[3], out int build))
+                {
+                    return $"{vParts[0]}.{vParts[1]}.{vParts[2]}{build:D2}";
+                }
+                return bepVersion;
+            }
+            catch { return "unknown"; }
         }
 
         private static Version ParseVersionSafe(string v)

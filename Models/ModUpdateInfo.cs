@@ -7,6 +7,7 @@ namespace Rooster.Models
         public string ModName;
         public string Version;
         public string DownloadUrl;
+        public string GUID;
 
         public string FullName;
         public string Description;

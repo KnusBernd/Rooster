@@ -183,6 +183,8 @@ namespace Rooster.UI
                     {
                         if (info != null && _statusLabels.TryGetValue(info, out var label))
                         {
+                            if (label == null || !label.gameObject) return;
+                            
                             label.text = status;
                             if (status == "Ready") label.color = UIHelpers.Themes.Success.Normal;
                             else if (status.Contains("Failed") || status.Contains("Skipped")) label.color = UIHelpers.Themes.Danger.Normal;
@@ -192,6 +194,8 @@ namespace Rooster.UI
                     },
                     () =>
                     {
+                        if (updateLabel == null || updateBtn == null || !updateBtn.gameObject) return;
+
                         // Transform button to "Restart Game"
                         updateLabel.text = "Restart Game";
                         updateBtn.SetInteractable(true);

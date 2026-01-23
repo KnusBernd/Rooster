@@ -92,7 +92,7 @@ namespace Rooster.Services
 
         private static void GenerateManifest(string targetDirectory, ThunderstorePackage metadata, List<string> installedFiles)
         {
-            if (metadata == null) return;
+            if (metadata == null || string.IsNullOrEmpty(metadata.FullName)) return;
 
             string manifestDir = Path.Combine(Paths.ConfigPath, "Rooster", "Manifests");
             Directory.CreateDirectory(manifestDir);
@@ -188,13 +188,13 @@ namespace Rooster.Services
                 string bepInExPack = Path.Combine(root, "BepInExPack");
                 if (Directory.Exists(bepInExPack))
                 {
-                    return bepInExPack;
+                    return bepInExPack; // Return the pack folder so its contents (BepInEx, winhttp.dll) are copied
                 }
                 
                 string bepInEx = Path.Combine(root, "BepInEx");
                 if (Directory.Exists(bepInEx))
                 {
-                    return bepInEx;
+                    return root; // Return parent so BepInEx and sibling core files are copied
                 }
 
                 return root;
@@ -204,7 +204,7 @@ namespace Rooster.Services
             var allDirs = Directory.GetDirectories(extractPath, "BepInEx", SearchOption.AllDirectories);
             if (allDirs.Length > 0)
             {
-                return allDirs[0];
+                return Path.GetDirectoryName(allDirs[0]);
             }
 
             var dlls = Directory.GetFiles(extractPath, "*.dll", SearchOption.AllDirectories);
@@ -223,8 +223,7 @@ namespace Rooster.Services
             if (Directory.Exists(Path.Combine(packageRoot, "BepInEx")))
             {
                 if (RoosterConfig.AllowGameRootInstallation.Value) return Paths.GameRootPath;
-                RoosterPlugin.LogWarning("[Security] Mod attempted to install to Game Root, but protection is enabled. Defaulting to plugins.");
-                return Paths.PluginPath;
+                throw new InvalidOperationException("Mod requires Game Root installation (contains 'BepInEx' folder), but Game Root protection is enabled in settings.");
             }
 
             if (Directory.Exists(Path.Combine(packageRoot, "plugins")) || Directory.Exists(Path.Combine(packageRoot, "config"))) return Paths.BepInExRootPath;

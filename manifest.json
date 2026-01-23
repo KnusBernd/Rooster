@@ -1,7 +1,7 @@
 {
     "author": "KnusBernd",
     "name": "Rooster",
-    "version_number": "1.0.0",
+    "version_number": "1.0.1",
     "website_url": "https://github.com/knusbernd/Rooster",
     "description": "A mod manager that keeps your mods up to date. Auto-discovery, one-click updates, and more.",
     "dependencies": [

@@ -31,6 +31,10 @@ namespace Rooster.Services
                     ModName = modName,
                     Version = latestVersion,
                     DownloadUrl = remotePkg.Latest.DownloadUrl,
+                    FullName = remotePkg.FullName,
+                    Description = remotePkg.Description,
+                    WebsiteUrl = remotePkg.WebsiteUrl,
+                    GUID = plugin?.Metadata.GUID ?? remotePkg.FullName, // Fallback to FullName if plugin is null (pseudo-plugin)
                     PluginInfo = plugin
                 };
             }
